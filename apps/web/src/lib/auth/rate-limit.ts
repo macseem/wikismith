@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { RateLimitError } from '@wikismith/shared';
 import { getStoredUserByWorkOSId } from './user-store';
 
@@ -24,6 +24,12 @@ export interface RateLimitResult {
   used: number;
   limit: number;
   retryAfterSeconds: number;
+  resetAt: string;
+}
+
+export interface DailyGenerationUsage {
+  used: number;
+  limit: number;
   resetAt: string;
 }
 
@@ -53,6 +59,39 @@ const getNextUtcMidnightIso = (): string => {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
   ).toISOString();
+};
+
+export const getDailyGenerationUsage = async (
+  workosUserId: string,
+): Promise<DailyGenerationUsage> => {
+  const { db, generationRateLimits } = await loadDb();
+  const user = await getStoredUserByWorkOSId(workosUserId);
+  const dailyLimit = getDailyGenerationLimit();
+
+  if (!user) {
+    throw new RateLimitError(
+      'Authenticated user record is missing.',
+      'RATE_LIMIT_USER_MISSING',
+      500,
+    );
+  }
+
+  const bucketDate = getCurrentBucketDate();
+  const row = await db.query.generationRateLimits.findFirst({
+    where: and(
+      eq(generationRateLimits.userId, user.id),
+      eq(generationRateLimits.bucketDate, bucketDate),
+    ),
+    columns: {
+      count: true,
+    },
+  });
+
+  return {
+    used: Math.min(row?.count ?? 0, dailyLimit),
+    limit: dailyLimit,
+    resetAt: getNextUtcMidnightIso(),
+  };
 };
 
 export const incrementDailyGenerationCount = async (

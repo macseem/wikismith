@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getSession } from '@/lib/auth/session';
 import { getGitHubSignInUrl } from '@/lib/auth/sign-in-url';
@@ -42,9 +41,9 @@ const SignInPage = async ({ searchParams }: SignInPageProps) => {
       <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/70 p-8 space-y-6">
         <div className="space-y-2 text-center">
           <p className="text-zinc-400 text-sm">Welcome to WikiSmith</p>
-          <h1 className="text-3xl font-bold tracking-tight">Sign in with GitHub</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
           <p className="text-zinc-400 text-sm">
-            Use your GitHub account to access private repositories and generate wiki docs.
+            Use your account to access repositories and generate wiki docs.
           </p>
         </div>
 
@@ -62,15 +61,12 @@ const SignInPage = async ({ searchParams }: SignInPageProps) => {
         )}
 
         <Button asChild size="lg" className="w-full">
-          <Link href={signInUrl}>
-            <Github className="size-5" />
-            Continue with GitHub
-          </Link>
+          <Link href={signInUrl}>Continue</Link>
         </Button>
 
         <p className="text-xs text-zinc-500 text-center">
           By continuing, you authorize WikiSmith to access repositories according to your configured
-          WorkOS GitHub connection scopes.
+          provider scopes.
         </p>
       </div>
     </main>

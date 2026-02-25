@@ -1,5 +1,5 @@
 import type { IWikiPage, IClassifiedFeatureTree } from '@wikismith/shared';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, resolve, sep } from 'path';
 
 export interface StoredWiki {
@@ -50,5 +50,27 @@ export const getWiki = (owner: string, repo: string): StoredWiki | undefined => 
   }
 };
 
-export const hasWiki = (owner: string, repo: string): boolean =>
-  existsSync(filePath(owner, repo));
+export const hasWiki = (owner: string, repo: string): boolean => existsSync(filePath(owner, repo));
+
+export const listRecentWikis = (limit = 10): StoredWiki[] => {
+  if (!existsSync(CACHE_DIR)) {
+    return [];
+  }
+
+  const entries = readdirSync(CACHE_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => join(CACHE_DIR, entry.name));
+
+  const parsed = entries
+    .map((path) => {
+      try {
+        return JSON.parse(readFileSync(path, 'utf-8')) as StoredWiki;
+      } catch {
+        return null;
+      }
+    })
+    .filter((wiki): wiki is StoredWiki => wiki !== null)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return parsed.slice(0, limit);
+};
