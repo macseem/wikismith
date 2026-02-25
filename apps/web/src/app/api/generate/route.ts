@@ -127,7 +127,7 @@ export const POST = async (request: Request) => {
   const wantsSSE = accept.split(',').some((t) => t.trim().startsWith('text/event-stream'));
 
   if (!wantsSSE) {
-    return runSynchronous(parsed, body, githubAccessToken);
+    return runSynchronous(parsed, body, githubAccessToken, session.user.workosId);
   }
 
   const stream = new ReadableStream({
@@ -190,6 +190,7 @@ export const POST = async (request: Request) => {
         );
 
         saveWiki({
+          generatedByWorkosId: session.user.workosId,
           owner: parsed.owner,
           repo: parsed.name,
           commitSha: ingestion.commitSha,
@@ -254,6 +255,7 @@ const runSynchronous = async (
   parsed: ReturnType<typeof parseGitHubUrl>,
   body: GenerateBody,
   githubAccessToken: string | null,
+  workosUserId: string,
 ) => {
   try {
     const ingestion = await ingest(body.url!, {
@@ -274,6 +276,7 @@ const runSynchronous = async (
     });
 
     saveWiki({
+      generatedByWorkosId: workosUserId,
       owner: parsed.owner,
       repo: parsed.name,
       commitSha: ingestion.commitSha,

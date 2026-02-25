@@ -21,7 +21,7 @@ export const AuthNav = ({ session, returnPathname = '/dashboard', className }: A
 
     return (
       <Button asChild size="sm" className={className}>
-        <Link href={signInUrl}>Sign in with GitHub</Link>
+        <Link href={signInUrl}>Sign in</Link>
       </Button>
     );
   }

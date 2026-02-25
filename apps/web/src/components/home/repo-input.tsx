@@ -62,10 +62,10 @@ export const RepoInput = () => {
 
         if (data.reauthPath) {
           setErrorActionPath(data.reauthPath);
-          setErrorActionLabel('Re-authenticate with GitHub');
+          setErrorActionLabel('Re-authenticate');
         } else if (data.signInPath || data.code === 'UNAUTHENTICATED') {
           setErrorActionPath(data.signInPath ?? '/sign-in?redirect=%2Fdashboard');
-          setErrorActionLabel('Sign in with GitHub');
+          setErrorActionLabel('Sign in');
         }
 
         setError(data.error ?? 'Failed to process repository');
@@ -132,7 +132,7 @@ export const RepoInput = () => {
               const reauthPath = data.reauthPath as string | undefined;
               if (reauthPath) {
                 setErrorActionPath(reauthPath);
-                setErrorActionLabel('Re-authenticate with GitHub');
+                setErrorActionLabel('Re-authenticate');
               }
               return;
             }

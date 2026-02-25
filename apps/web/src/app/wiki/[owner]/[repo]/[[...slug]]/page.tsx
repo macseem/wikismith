@@ -90,7 +90,7 @@ const WikiPage = () => {
           <div className="ml-auto flex items-center gap-2">
             {!sessionLoading && !session && (
               <Link href="/sign-in" className="text-xs text-zinc-400 hover:text-zinc-200">
-                Sign in with GitHub
+                Sign in
               </Link>
             )}
             {!sessionLoading && session && (
