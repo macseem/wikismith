@@ -21,18 +21,21 @@ AI-powered wiki generation for code repositories. Paste a GitHub URL, get beauti
 ```
 wikismith/
 ├── apps/
-│   └── web/                    # Next.js 15 app (frontend + API routes)
+│   └── web/                    # Next.js 16 app (frontend + API routes)
 ├── packages/
-│   ├── analyzer/               # Repository analysis engine
+│   ├── analyzer/               # Repository ingestion + analysis engine
 │   ├── generator/              # Wiki content generation (AI)
-│   ├── db/                     # Drizzle schema, migrations, client
-│   └── shared/                 # Shared types, utils, constants
+│   ├── db/                     # Drizzle schema, migrations, client (Neon)
+│   ├── shared/                 # Shared types, utils, constants
+│   ├── eslint-config/          # Shared ESLint flat config
+│   └── tsconfig/               # Shared TypeScript configs
+├── terraform/                  # Cloudflare DNS (wikismith.dudkin-garage.com)
+├── .github/workflows/          # CI — Blacksmith runner
 ├── features/                   # Feature PRDs
 ├── docs/
 │   └── architecture/           # Architecture Decision Records (ADRs)
 ├── skills/                     # Shared skills (Cursor + OpenCode)
-├── .cursor/rules/              # Symlinks to skills/ (Cursor)
-├── .agents/skills/             # Symlinks to skills/ (OpenCode)
+├── vercel.json                 # Vercel deployment config
 ├── turbo.json
 └── package.json
 ```
