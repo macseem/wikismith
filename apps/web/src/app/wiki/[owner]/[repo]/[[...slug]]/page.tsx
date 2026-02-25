@@ -86,6 +86,9 @@ const WikiPage = () => {
             {owner}/{repo}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            <Link href="/sign-in" className="text-xs text-zinc-400 hover:text-zinc-200">
+              Sign in with GitHub
+            </Link>
             {wiki.analysis.frameworks.map((fw) => (
               <Badge key={fw} variant="secondary" className="text-xs">
                 {fw}

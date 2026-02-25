@@ -1,4 +1,15 @@
-import { pgTable, text, timestamp, boolean, integer, jsonb, uuid, varchar } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+  uuid,
+  varchar,
+  date,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -8,6 +19,11 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   githubTokenEncrypted: text('github_token_encrypted'),
   githubTokenIv: text('github_token_iv'),
+  githubTokenTag: text('github_token_tag'),
+  githubRefreshTokenEncrypted: text('github_refresh_token_encrypted'),
+  githubRefreshTokenIv: text('github_refresh_token_iv'),
+  githubRefreshTokenTag: text('github_refresh_token_tag'),
+  githubTokenExpiresAt: timestamp('github_token_expires_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -58,13 +74,18 @@ export const wikiPages = pgTable('wiki_pages', {
   slug: text('slug').notNull(),
   title: text('title').notNull(),
   content: text('content').notNull(),
-  citations: jsonb('citations').$type<Array<{
-    text: string;
-    filePath: string;
-    startLine: number;
-    endLine: number;
-    url: string;
-  }>>().default([]).notNull(),
+  citations: jsonb('citations')
+    .$type<
+      Array<{
+        text: string;
+        filePath: string;
+        startLine: number;
+        endLine: number;
+        url: string;
+      }>
+    >()
+    .default([])
+    .notNull(),
   parentPageId: uuid('parent_page_id'),
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -85,3 +106,23 @@ export const generationJobs = pgTable('generation_jobs', {
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+export const generationRateLimits = pgTable(
+  'generation_rate_limits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    bucketDate: date('bucket_date').notNull(),
+    count: integer('count').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    userBucketUnique: uniqueIndex('generation_rate_limits_user_bucket_unique').on(
+      table.userId,
+      table.bucketDate,
+    ),
+  }),
+);

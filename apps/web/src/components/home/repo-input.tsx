@@ -23,12 +23,16 @@ export const RepoInput = () => {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorActionPath, setErrorActionPath] = useState<string | null>(null);
+  const [errorActionLabel, setErrorActionLabel] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
   const runGeneration = useCallback(async () => {
     setError(null);
+    setErrorActionPath(null);
+    setErrorActionLabel(null);
     setProgress(null);
 
     const trimmed = url.trim();
@@ -49,7 +53,21 @@ export const RepoInput = () => {
       });
 
       if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
+        const data = (await response.json()) as {
+          error?: string;
+          signInPath?: string;
+          reauthPath?: string;
+          code?: string;
+        };
+
+        if (data.reauthPath) {
+          setErrorActionPath(data.reauthPath);
+          setErrorActionLabel('Re-authenticate with GitHub');
+        } else if (data.signInPath || data.code === 'UNAUTHENTICATED') {
+          setErrorActionPath(data.signInPath ?? '/sign-in?redirect=%2Fdashboard');
+          setErrorActionLabel('Sign in with GitHub');
+        }
+
         setError(data.error ?? 'Failed to process repository');
         return;
       }
@@ -97,6 +115,7 @@ export const RepoInput = () => {
             try {
               data = JSON.parse(line.slice(6)) as Record<string, unknown>;
             } catch {
+              console.warn('[RepoInput] Ignoring malformed SSE payload');
               continue;
             }
 
@@ -110,6 +129,11 @@ export const RepoInput = () => {
             } else if (currentEvent === 'error') {
               streamCompleted = true;
               setError((data.error as string) ?? 'Generation failed');
+              const reauthPath = data.reauthPath as string | undefined;
+              if (reauthPath) {
+                setErrorActionPath(reauthPath);
+                setErrorActionLabel('Re-authenticate with GitHub');
+              }
               return;
             }
           }
@@ -138,7 +162,7 @@ export const RepoInput = () => {
     [runGeneration],
   );
 
-  const progressLabel = progress ? STAGE_LABELS[progress.stage] ?? progress.stage : null;
+  const progressLabel = progress ? (STAGE_LABELS[progress.stage] ?? progress.stage) : null;
   const progressDetail =
     progress?.total && progress.completed !== undefined
       ? `${progress.completed}/${progress.total}`
@@ -196,6 +220,15 @@ export const RepoInput = () => {
       {error && (
         <div className="mt-3 space-y-2">
           <p className="text-sm text-red-400">{error}</p>
+          {errorActionPath && errorActionLabel && (
+            <button
+              type="button"
+              onClick={() => router.push(errorActionPath)}
+              className="text-xs text-amber-300 hover:underline"
+            >
+              {errorActionLabel}
+            </button>
+          )}
           {!loading && (
             <button
               type="button"
