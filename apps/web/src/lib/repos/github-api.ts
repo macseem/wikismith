@@ -189,12 +189,14 @@ export const fetchGitHubBranches = async (
   owner: string,
   repo: string,
 ): Promise<string[]> => {
+  const ownerSegment = encodeURIComponent(owner);
+  const repoSegment = encodeURIComponent(repo);
   const branches: string[] = [];
   let page = 1;
 
   while (page <= 20) {
     const response = await fetch(
-      `${GITHUB_API_BASE}/repos/${owner}/${repo}/branches?per_page=100&page=${page}`,
+      `${GITHUB_API_BASE}/repos/${ownerSegment}/${repoSegment}/branches?per_page=100&page=${page}`,
       {
         headers: getHeaders(accessToken),
         cache: 'no-store',
@@ -223,7 +225,10 @@ export const fetchGitHubRepository = async (
   owner: string,
   repo: string,
 ): Promise<GitHubRepositorySummary> => {
-  const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
+  const ownerSegment = encodeURIComponent(owner);
+  const repoSegment = encodeURIComponent(repo);
+
+  const response = await fetch(`${GITHUB_API_BASE}/repos/${ownerSegment}/${repoSegment}`, {
     headers: getHeaders(accessToken),
     cache: 'no-store',
   });

@@ -56,7 +56,7 @@ const reposPageCache = new Map<
   CacheEntry<{ repos: GitHubRepositorySummary[]; hasNext: boolean }>
 >();
 const branchesCache = new Map<string, CacheEntry<string[]>>();
-const branchesRefreshRateLimit = new Map<string, number>();
+const branchesRefreshRateLimit = new Map<string, CacheEntry<number>>();
 
 const DEFAULT_REPO_PAGE_SIZE = 20;
 const REAUTH_PATH = '/sign-in?redirect=%2Fdashboard&reauth=github_scope';
@@ -150,12 +150,23 @@ const getCached = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null 
   return entry.value;
 };
 
+const pruneExpired = <T>(cache: Map<string, CacheEntry<T>>): void => {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (entry.expiresAt < now) {
+      cache.delete(key);
+    }
+  }
+};
+
 const setCached = <T>(
   cache: Map<string, CacheEntry<T>>,
   key: string,
   value: T,
   ttlMs: number,
 ): void => {
+  pruneExpired(cache);
+
   cache.set(key, {
     value,
     expiresAt: Date.now() + ttlMs,
@@ -401,8 +412,8 @@ export const getRepositoryBranches = async (
 
   if (refresh) {
     const now = Date.now();
-    const lastRefreshAt = branchesRefreshRateLimit.get(key);
-    if (lastRefreshAt && now - lastRefreshAt < BRANCH_REFRESH_MIN_INTERVAL_MS) {
+    const lastRefreshAt = getCached(branchesRefreshRateLimit, key);
+    if (lastRefreshAt !== null) {
       const retryAfterSeconds = Math.ceil(
         (BRANCH_REFRESH_MIN_INTERVAL_MS - (now - lastRefreshAt)) / 1000,
       );
@@ -415,7 +426,7 @@ export const getRepositoryBranches = async (
       );
     }
 
-    branchesRefreshRateLimit.set(key, now);
+    setCached(branchesRefreshRateLimit, key, now, BRANCH_REFRESH_MIN_INTERVAL_MS);
   }
 
   if (!refresh) {
@@ -435,8 +446,8 @@ export const updateRepositorySettings = async (
   workosUserId: string,
   owner: string,
   repo: string,
-  trackedBranch: string | null,
-  autoUpdate: boolean,
+  trackedBranch?: string | null,
+  autoUpdate?: boolean,
 ): Promise<void> => {
   const [accessToken, user, { db, repositories }] = await Promise.all([
     getGitHubToken(workosUserId),
@@ -451,17 +462,22 @@ export const updateRepositorySettings = async (
   const githubRepo = await fetchGitHubRepository(accessToken, owner, repo);
 
   const fullName = `${owner}/${repo}`;
-  const normalizedTrackedBranch = trackedBranch?.trim()
-    ? trackedBranch.trim()
-    : githubRepo.defaultBranch;
+  const normalizedTrackedBranch =
+    trackedBranch === undefined
+      ? undefined
+      : trackedBranch?.trim()
+        ? trackedBranch.trim()
+        : githubRepo.defaultBranch;
+
+  const updateValues = {
+    updatedAt: new Date(),
+    ...(normalizedTrackedBranch !== undefined ? { trackedBranch: normalizedTrackedBranch } : {}),
+    ...(autoUpdate !== undefined ? { autoUpdate } : {}),
+  };
 
   const updated = await db
     .update(repositories)
-    .set({
-      trackedBranch: normalizedTrackedBranch,
-      autoUpdate,
-      updatedAt: new Date(),
-    })
+    .set(updateValues)
     .where(and(eq(repositories.userId, user.id), eq(repositories.fullName, fullName)))
     .returning({ id: repositories.id });
 
@@ -477,8 +493,8 @@ export const updateRepositorySettings = async (
     description: githubRepo.description,
     isPrivate: githubRepo.isPrivate,
     defaultBranch: githubRepo.defaultBranch,
-    trackedBranch: normalizedTrackedBranch,
-    autoUpdate,
+    trackedBranch: normalizedTrackedBranch ?? githubRepo.defaultBranch,
+    autoUpdate: autoUpdate ?? false,
     language: githubRepo.language,
     updatedAt: new Date(),
   });

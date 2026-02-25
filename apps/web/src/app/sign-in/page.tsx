@@ -87,7 +87,7 @@ const SignInPage = async ({ searchParams }: SignInPageProps) => {
           </p>
         )}
 
-        {!blocksReauthLoop ? (
+        {!blocksReauthLoop || !session ? (
           <Button asChild size="lg" className="w-full">
             <Link href={signInUrl}>Continue</Link>
           </Button>

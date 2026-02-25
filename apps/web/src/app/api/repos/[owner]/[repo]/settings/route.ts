@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import { updateRepositorySettings } from '@/lib/repos/repository-service';
 
 interface SettingsBody {
-  trackedBranch?: string;
+  trackedBranch?: string | null;
   autoUpdate?: boolean;
 }
 
@@ -60,7 +60,37 @@ export const PATCH = async (
     return NextResponse.json({ error: 'Invalid JSON body', code: 'INVALID_BODY' }, { status: 400 });
   }
 
-  const trackedBranch = typeof body.trackedBranch === 'string' ? body.trackedBranch.trim() : null;
+  const hasTrackedBranch = Object.prototype.hasOwnProperty.call(body, 'trackedBranch');
+  const hasAutoUpdate = Object.prototype.hasOwnProperty.call(body, 'autoUpdate');
+
+  if (!hasTrackedBranch && !hasAutoUpdate) {
+    return NextResponse.json(
+      { error: 'At least one setting must be provided', code: 'NO_SETTINGS_PROVIDED' },
+      { status: 400 },
+    );
+  }
+
+  let trackedBranch: string | null | undefined;
+  if (hasTrackedBranch) {
+    if (typeof body.trackedBranch !== 'string' && body.trackedBranch !== null) {
+      return NextResponse.json(
+        { error: 'Invalid tracked branch value', code: 'INVALID_TRACKED_BRANCH' },
+        { status: 400 },
+      );
+    }
+
+    trackedBranch =
+      typeof body.trackedBranch === 'string'
+        ? body.trackedBranch.trim() || null
+        : body.trackedBranch;
+  }
+
+  if (hasAutoUpdate && typeof body.autoUpdate !== 'boolean') {
+    return NextResponse.json(
+      { error: 'Invalid auto-update value', code: 'INVALID_AUTO_UPDATE' },
+      { status: 400 },
+    );
+  }
 
   if (trackedBranch && !isValidGitRefName(trackedBranch)) {
     return NextResponse.json(
@@ -69,7 +99,7 @@ export const PATCH = async (
     );
   }
 
-  const autoUpdate = Boolean(body.autoUpdate);
+  const autoUpdate = hasAutoUpdate ? body.autoUpdate : undefined;
 
   try {
     await updateRepositorySettings(session.user.workosId, owner, repo, trackedBranch, autoUpdate);

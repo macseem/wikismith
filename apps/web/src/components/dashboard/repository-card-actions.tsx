@@ -85,6 +85,20 @@ export const RepositoryCardActions = ({
 
       const data = (await response.json()) as { branches: string[] };
       setBranches(data.branches);
+      if (data.branches.length > 0) {
+        setSettingsBranch((currentBranch) => {
+          if (data.branches.includes(currentBranch)) {
+            return currentBranch;
+          }
+
+          if (data.branches.includes(defaultBranch)) {
+            return defaultBranch;
+          }
+
+          return data.branches[0] ?? currentBranch;
+        });
+      }
+
       setBranchesLoaded(true);
       setError(null);
     } catch {

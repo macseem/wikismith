@@ -29,27 +29,44 @@ const logGitHubAuthResponse = async (label: string, response: Response): Promise
   });
 };
 
+const isTransientGitHubError = (response: Response): boolean => {
+  if (response.status >= 500 || response.status === 429) {
+    return true;
+  }
+
+  if (response.status !== 403) {
+    return false;
+  }
+
+  return response.headers.get('x-ratelimit-remaining') === '0';
+};
+
 const hasRepositoryScope = async (accessToken: string): Promise<boolean> => {
-  const response = await fetch('https://api.github.com/user', {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${accessToken}`,
-      'User-Agent': 'WikiSmith/1.0',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch('https://api.github.com/user', {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'WikiSmith/1.0',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new Error('REPO_SCOPE_CHECK_FAILED');
+  }
 
   if (!response.ok) {
     await logGitHubAuthResponse('user', response);
-    return false;
+    throw new Error('REPO_SCOPE_CHECK_FAILED');
   }
 
   const scopesHeader = response.headers.get('x-oauth-scopes') ?? '';
   if (!scopesHeader) {
-    const probeResponse = await fetch(
-      'https://api.github.com/user/repos?visibility=all&per_page=1',
-      {
+    let probeResponse: Response;
+    try {
+      probeResponse = await fetch('https://api.github.com/user/repos?visibility=all&per_page=1', {
         headers: {
           Accept: 'application/vnd.github+json',
           Authorization: `Bearer ${accessToken}`,
@@ -57,11 +74,17 @@ const hasRepositoryScope = async (accessToken: string): Promise<boolean> => {
           'X-GitHub-Api-Version': '2022-11-28',
         },
         cache: 'no-store',
-      },
-    );
+      });
+    } catch {
+      throw new Error('REPO_SCOPE_CHECK_FAILED');
+    }
 
     if (!probeResponse.ok) {
       await logGitHubAuthResponse('user_repos_probe', probeResponse);
+
+      if (isTransientGitHubError(probeResponse) || probeResponse.status === 401) {
+        throw new Error('REPO_SCOPE_CHECK_FAILED');
+      }
     }
 
     return probeResponse.ok;
@@ -115,6 +138,9 @@ export const GET = handleAuth({
     } else if (error instanceof Error && error.message === 'MISSING_REPO_SCOPE') {
       url.pathname = '/dashboard';
       url.searchParams.set('authError', 'missing_repo_scope');
+    } else if (error instanceof Error && error.message === 'REPO_SCOPE_CHECK_FAILED') {
+      url.pathname = '/dashboard';
+      url.searchParams.set('authError', 'repo_scope_check_failed');
     } else {
       url.searchParams.set('error', 'auth_failed');
     }

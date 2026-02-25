@@ -19,7 +19,7 @@ interface DashboardPageProps {
     status?: WikiStatus | 'all';
     cursor?: string;
     refresh?: string;
-    authError?: 'missing_provider_tokens' | 'missing_repo_scope';
+    authError?: 'missing_provider_tokens' | 'missing_repo_scope' | 'repo_scope_check_failed';
   }>;
 }
 
@@ -345,6 +345,20 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
             </div>
           )}
 
+          {authError === 'repo_scope_check_failed' && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200 space-y-2">
+              <p>
+                We could not verify GitHub repository access right now due to a transient GitHub API
+                failure. Please reconnect and try again.
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/sign-in?redirect=/dashboard&reauth=github_scope">
+                  Reconnect account
+                </Link>
+              </Button>
+            </div>
+          )}
+
           {dashboardError && !supportsReconnect && (
             <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200 flex items-center gap-2">
               <AlertTriangle className="size-4" />
@@ -404,17 +418,25 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <Button asChild size="sm" variant="outline" disabled={!previousHref}>
-              <Link href={previousHref ?? '#'} aria-disabled={!previousHref}>
+            {previousHref ? (
+              <Button asChild size="sm" variant="outline">
+                <Link href={previousHref}>Previous</Link>
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled>
                 Previous
-              </Link>
-            </Button>
+              </Button>
+            )}
 
-            <Button asChild size="sm" variant="outline" disabled={!nextHref}>
-              <Link href={nextHref ?? '#'} aria-disabled={!nextHref}>
+            {nextHref ? (
+              <Button asChild size="sm" variant="outline">
+                <Link href={nextHref}>Next</Link>
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled>
                 Next
-              </Link>
-            </Button>
+              </Button>
+            )}
           </div>
         </Card>
       </div>

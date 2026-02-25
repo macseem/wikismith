@@ -66,8 +66,12 @@ export const deleteWiki = (owner: string, repo: string, workosUserId?: string): 
     }
   }
 
-  unlinkSync(path);
-  return true;
+  try {
+    unlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 interface ListRecentWikisOptions {
