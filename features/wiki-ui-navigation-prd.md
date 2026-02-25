@@ -276,6 +276,36 @@ Additionally, wiki generation takes time (minutes for large repos). Users need c
 - **OQ-7**: For generation progress: polling interval, max wait time before "this is taking longer than usual" message?
 - **OQ-8**: Do we need a "Compare with GitHub" or "View on GitHub" global link in the header?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Homepage with repo URL input, feature cards
+- SSE streaming progress: ingesting → analyzing → classifying → generating (with page counts)
+- Progress bar and stage labels during generation
+- Error display with retry button
+- Wiki page: sidebar + content area
+- Sidebar shows feature hierarchy with active state highlighting
+- Markdown rendering with react-markdown + remark-gfm
+- Dark mode (default)
+- Citations section at bottom of pages
+- Breadcrumbs: partial (header shows WikiSmith / owner/repo, not full breadcrumb trail)
+
+### What's Not Yet Implemented
+- Table of Contents (ToC)
+- Search (Cmd+K)
+- Scroll-spy
+- Breadcrumbs per feature
+- Syntax highlighting
+- Code block copy button
+- Responsive mobile sidebar (hamburger)
+- Light mode toggle
+- Keyboard navigation
+
+### Current Limitations
+- Breadcrumbs show only WikiSmith / owner/repo, not full feature path. No ToC or search yet.
+
 ## 12. Milestones
 
 ### M1: Core Layout & Navigation (MVP)

@@ -182,6 +182,27 @@ interface ClassificationResult {
 - **OQ-4**: How to handle repos with multiple entry points (e.g., Next.js app + API + CLI in one repo)?
 - **OQ-5**: Should we support a "flat" mode for small repos that skips hierarchy to reduce latency?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Single-pass classification with OpenAI (gpt-4o-mini)
+- Hierarchical feature tree with 2 levels (features + sub-features)
+- Files assigned to features with roles
+- Chunking for large repos (MAX_FILES_PER_CHUNK = 100)
+- Feature merging across chunks
+- JSON mode for structured output
+- Configurable max features
+
+### What's Not Yet Implemented
+- Multi-pass approach
+- Repo type detection (monolith, microservices, CLI, library)
+- Token usage logging
+
+### Current Limitations
+- Single-pass only; may be less accurate for very large or complex repos compared to multi-pass approach.
+
 ## 12. Milestones
 
 ### M1: Core Classification (MVP)

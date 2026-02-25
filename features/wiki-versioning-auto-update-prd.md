@@ -269,6 +269,25 @@ CREATE INDEX idx_wiki_current ON wiki_versions (owner, repo, branch, generated_a
 - **OQ-7**: Grace period for deleted repos—30 days? 90? Legal/data retention implications?
 - **OQ-8**: Should we support "pause auto-updates" (user disables without changing branch)?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Nothing yet; blocked by Auth and Generation integration
+
+### What's Not Yet Implemented
+- Commit-pinned wiki metadata
+- URL structure for versions
+- Branch tracking
+- Webhook endpoint for GitHub push events
+- Auto-update on push
+- Version history
+- All features described in this PRD
+
+### Current Limitations
+- No versioning; each generation overwrites. Depends on Auth (for user-scoped config), Generation (for pipeline), and DB (for wiki storage) being fully integrated.
+
 ## 12. Milestones
 
 ### M1: Commit-Pinned Wikis & URL Structure (1–2 weeks)

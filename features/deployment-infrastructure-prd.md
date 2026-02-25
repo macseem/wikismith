@@ -212,6 +212,25 @@ jobs:
 - **OQ-6**: Preview deployments: use production env vars (e.g., OPENAI_API_KEY) or a separate test key? Affects cost and isolation.
 - **OQ-7**: Should we support server-side rendering (SSR) for wiki pages? Affects caching and SEO; may need ISR or static generation strategy.
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- CI pipeline (.github/workflows/ci.yml) with lint, type-check, test, build
+- Vercel deployment configured (vercel.json)
+- Custom domain configured via Terraform (Cloudflare DNS)
+- maxDuration=300 set on generate route
+
+### What's Not Yet Implemented
+- Preview deployments for PRs
+- Rate limiting on public API
+- Sentry or error-tracking integration
+- Neon-backed wiki storage (currently file-based .wikismith-cache/)
+
+### Current Limitations
+- Wiki storage uses file-based cache (.wikismith-cache/) instead of Neon PostgreSQL; not suitable for production at scale.
+
 ## 12. Milestones
 
 ### M1: CI Pipeline & Basic Deployment (1–2 days)

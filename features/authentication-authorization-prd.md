@@ -232,6 +232,24 @@ interface IWiki {
 - **OQ-6**: Should we support "Sign in with email" (magic link or password) for users without GitHub? WorkOS supports it; adds complexity.
 - **OQ-7**: WorkOS session revocation—do we need to track session IDs to revoke on sign-out, or is clearing the cookie sufficient?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- WorkOS env vars configured
+- DB schema for users table exists
+
+### What's Not Yet Implemented
+- Sign in/out flow
+- Middleware auth protection
+- GitHub token storage
+- Session management
+- All other auth features described in this PRD
+
+### Current Limitations
+- No authentication; app operates in unauthenticated mode only. Private repos not accessible.
+
 ## 12. Milestones
 
 ### M1: WorkOS Integration & Sign-In (3–4 days)

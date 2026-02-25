@@ -1,4 +1,6 @@
 import type { IWikiPage, IClassifiedFeatureTree } from '@wikismith/shared';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 export interface StoredWiki {
   owner: string;
@@ -14,17 +16,31 @@ export interface StoredWiki {
   createdAt: string;
 }
 
-const store = new Map<string, StoredWiki>();
+const CACHE_DIR = join(process.cwd(), '.wikismith-cache');
 
-const key = (owner: string, repo: string) =>
-  `${owner.toLowerCase()}/${repo.toLowerCase()}`;
-
-export const saveWiki = (wiki: StoredWiki): void => {
-  store.set(key(wiki.owner, wiki.repo), wiki);
+const ensureCacheDir = () => {
+  if (!existsSync(CACHE_DIR)) {
+    mkdirSync(CACHE_DIR, { recursive: true });
+  }
 };
 
-export const getWiki = (owner: string, repo: string): StoredWiki | undefined =>
-  store.get(key(owner, repo));
+const filePath = (owner: string, repo: string) =>
+  join(CACHE_DIR, `${owner.toLowerCase()}__${repo.toLowerCase()}.json`);
+
+export const saveWiki = (wiki: StoredWiki): void => {
+  ensureCacheDir();
+  writeFileSync(filePath(wiki.owner, wiki.repo), JSON.stringify(wiki), 'utf-8');
+};
+
+export const getWiki = (owner: string, repo: string): StoredWiki | undefined => {
+  const path = filePath(owner, repo);
+  if (!existsSync(path)) return undefined;
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as StoredWiki;
+  } catch {
+    return undefined;
+  }
+};
 
 export const hasWiki = (owner: string, repo: string): boolean =>
-  store.has(key(owner, repo));
+  existsSync(filePath(owner, repo));

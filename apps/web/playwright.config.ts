@@ -10,10 +10,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env['CI'],
-  retries: 0,
+  retries: process.env['CI'] ? 1 : 0,
   workers: 1,
-  reporter: 'html',
-  timeout: 5 * 60 * 1000, // 5 min per test — generation calls OpenAI
+  reporter: process.env['CI'] ? 'github' : 'html',
+  timeout: 5 * 60 * 1000,
   expect: {
     timeout: 30_000,
   },
@@ -28,7 +28,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm next dev --turbopack --port ${PORT}`,
+    command: `pnpm next dev --port ${PORT}`,
     port: PORT,
     timeout: 60_000,
     reuseExistingServer: !process.env['CI'],

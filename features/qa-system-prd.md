@@ -185,6 +185,25 @@ The Q&A system solves this by letting users ask questions in natural language. T
 - **OQ-6**: Should we support a "simple search bar" that shows a single answer, or a full chat-like interface from day one? UX decision.
 - **OQ-7**: Model choice: `gpt-4o-mini` for cost vs. `gpt-4o` for quality. Need cost/quality trade-off analysis.
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Nothing yet; blocked by Embeddings pipeline
+
+### What's Not Yet Implemented
+- Question input and validation
+- Context retrieval (full or RAG)
+- Answer generation with citations
+- Streaming responses
+- Rate limiting
+- Q&A UI in wiki view
+- All features described in this PRD
+
+### Current Limitations
+- Q&A system not started. Depends on Database & Embeddings PRD (embeddings pipeline, pgvector) and optionally Authentication.
+
 ## 12. Milestones
 
 ### M1: Single-Turn Q&A with Full Context (MVP)

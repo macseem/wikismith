@@ -170,6 +170,27 @@ Define this in `@wikismith/shared` and implement in the ingestion package.
 - **OQ-4**: Should we support `?ref=HEAD` or only explicit branch/tag/SHA for reproducibility?
 - **OQ-5**: Max repo size limits — 10K files and 100MB extracted content as initial values; confirm with real-world repos.
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- URL parsing for all formats: github.com/owner/repo, owner/repo, .git suffix, with optional ref
+- Archive (tarball) fetch strategy via GitHub API
+- Commit SHA resolution, rate limit handling, error handling
+- File extraction: tarball extraction with binary detection, ignore patterns, size limits
+- README and manifest detection, language breakdown computation
+- Output schema (`IIngestionResult`) defined in @wikismith/shared and implemented
+- File-based cache in .wikismith-cache/
+- Structured errors for all failure modes (IngestionError class)
+
+### What's Not Yet Implemented
+- GitHub OAuth token for private repos (auth not done yet)
+- DB-backed caching (Neon PostgreSQL as specified in PRD)
+
+### Current Limitations
+- Caching uses local file system (.wikismith-cache/) instead of Neon PostgreSQL; cache does not persist across serverless cold starts or different deployment instances.
+
 ## 12. Milestones
 
 ### M1: URL Parsing & Validation (1–2 days)
