@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join, resolve, sep } from 'path';
 
 export interface StoredWiki {
+  generatedByWorkosId?: string;
   owner: string;
   repo: string;
   commitSha: string;
@@ -52,7 +53,15 @@ export const getWiki = (owner: string, repo: string): StoredWiki | undefined => 
 
 export const hasWiki = (owner: string, repo: string): boolean => existsSync(filePath(owner, repo));
 
-export const listRecentWikis = (limit = 10): StoredWiki[] => {
+interface ListRecentWikisOptions {
+  limit?: number;
+  workosUserId?: string;
+}
+
+export const listRecentWikis = ({
+  limit = 10,
+  workosUserId,
+}: ListRecentWikisOptions = {}): StoredWiki[] => {
   if (!existsSync(CACHE_DIR)) {
     return [];
   }
@@ -70,6 +79,7 @@ export const listRecentWikis = (limit = 10): StoredWiki[] => {
       }
     })
     .filter((wiki): wiki is StoredWiki => wiki !== null)
+    .filter((wiki) => (workosUserId ? wiki.generatedByWorkosId === workosUserId : true))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return parsed.slice(0, limit);

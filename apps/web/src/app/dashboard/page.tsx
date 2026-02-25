@@ -35,7 +35,10 @@ const DashboardPage = async () => {
     })),
   ]);
 
-  const recentWikis = listRecentWikis(6);
+  const recentWikis = listRecentWikis({
+    limit: 6,
+    workosUserId: session.user.workosId,
+  });
   const hasGitHubToken = Boolean(
     dbUser?.githubTokenEncrypted && dbUser.githubTokenIv && dbUser.githubTokenTag,
   );

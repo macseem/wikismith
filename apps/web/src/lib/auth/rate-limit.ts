@@ -65,7 +65,20 @@ export const getDailyGenerationUsage = async (
   workosUserId: string,
 ): Promise<DailyGenerationUsage> => {
   const { db, generationRateLimits } = await loadDb();
-  const user = await getStoredUserByWorkOSId(workosUserId);
+  let user;
+  try {
+    user = await getStoredUserByWorkOSId(workosUserId);
+  } catch (error) {
+    throw new RateLimitError(
+      'Failed to load user for rate limiting.',
+      'RATE_LIMIT_USER_LOAD',
+      500,
+      {
+        cause: error,
+      },
+    );
+  }
+
   const dailyLimit = getDailyGenerationLimit();
 
   if (!user) {
