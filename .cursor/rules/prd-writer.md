@@ -1,0 +1,1 @@
+../../skills/prd-writer/SKILL.md

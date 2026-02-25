@@ -1,0 +1,1 @@
+../../skills/test-architect/SKILL.md
