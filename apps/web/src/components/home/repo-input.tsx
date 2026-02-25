@@ -80,6 +80,8 @@ export const RepoInput = () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let currentEvent = '';
+        let streamCompleted = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -89,7 +91,6 @@ export const RepoInput = () => {
           const lines = buffer.split('\n');
           buffer = lines.pop() ?? '';
 
-          let currentEvent = '';
           for (const line of lines) {
             if (line.startsWith('event: ')) {
               currentEvent = line.slice(7);
@@ -105,14 +106,20 @@ export const RepoInput = () => {
                 setProgress(data as unknown as ProgressState);
               } else if (currentEvent === 'complete') {
                 const { owner, repo } = data as { owner: string; repo: string };
+                streamCompleted = true;
                 router.push(`/wiki/${owner}/${repo}`);
                 return;
               } else if (currentEvent === 'error') {
+                streamCompleted = true;
                 setError((data.error as string) ?? 'Generation failed');
                 return;
               }
             }
           }
+        }
+
+        if (!streamCompleted) {
+          setError('Connection lost. Please try again.');
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;

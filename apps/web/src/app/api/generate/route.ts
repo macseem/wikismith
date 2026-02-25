@@ -148,7 +148,7 @@ export const POST = async (request: Request) => {
         } else {
           console.error('Generation error:', error);
           sendSSE(controller, 'error', {
-            error: error instanceof Error ? error.message : 'Internal server error',
+            error: 'Internal server error',
             code: 'INTERNAL_ERROR',
             statusCode: 500,
           });

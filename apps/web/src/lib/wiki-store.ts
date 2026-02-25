@@ -1,6 +1,6 @@
 import type { IWikiPage, IClassifiedFeatureTree } from '@wikismith/shared';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 export interface StoredWiki {
   owner: string;
@@ -24,8 +24,16 @@ const ensureCacheDir = () => {
   }
 };
 
-const filePath = (owner: string, repo: string) =>
-  join(CACHE_DIR, `${owner.toLowerCase()}__${repo.toLowerCase()}.json`);
+const sanitize = (input: string): string => input.replace(/[^a-zA-Z0-9._-]/g, '');
+
+const filePath = (owner: string, repo: string) => {
+  const name = `${sanitize(owner.toLowerCase())}__${sanitize(repo.toLowerCase())}.json`;
+  const resolved = resolve(CACHE_DIR, name);
+  if (!resolved.startsWith(CACHE_DIR)) {
+    throw new Error('Invalid owner/repo');
+  }
+  return resolved;
+};
 
 export const saveWiki = (wiki: StoredWiki): void => {
   ensureCacheDir();

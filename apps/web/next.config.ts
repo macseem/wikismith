@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-config({ path: resolve(process.cwd(), '../../.env') });
+config({ path: resolve(import.meta.dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['openai', '@neondatabase/serverless', 'tar'],
