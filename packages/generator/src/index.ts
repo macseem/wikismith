@@ -1,0 +1,1 @@
+export { generateWiki } from './generate';
