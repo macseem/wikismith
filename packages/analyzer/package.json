@@ -17,9 +17,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@wikismith/shared": "workspace:*"
+    "@wikismith/shared": "workspace:*",
+    "tar": "^7.5.9"
   },
   "devDependencies": {
+    "@types/node": "^20",
     "@wikismith/eslint-config": "workspace:*",
     "@wikismith/tsconfig": "workspace:*",
     "tsup": "^8.4.0",
