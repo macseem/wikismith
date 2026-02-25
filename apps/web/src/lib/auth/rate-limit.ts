@@ -1,6 +1,15 @@
-import { db, generationRateLimits } from '@wikismith/db';
 import { sql } from 'drizzle-orm';
 import { getStoredUserByWorkOSId } from './user-store';
+
+type DbModule = typeof import('@wikismith/db');
+
+const loadDb = async (): Promise<DbModule> => {
+  try {
+    return await import('@wikismith/db');
+  } catch (error) {
+    throw new Error('Failed to load database module for rate limiting.', { cause: error });
+  }
+};
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -41,6 +50,8 @@ const getNextUtcMidnightIso = (): string => {
 export const incrementDailyGenerationCount = async (
   workosUserId: string,
 ): Promise<RateLimitResult> => {
+  const { db, generationRateLimits } = await loadDb();
+
   let user;
   try {
     user = await getStoredUserByWorkOSId(workosUserId);

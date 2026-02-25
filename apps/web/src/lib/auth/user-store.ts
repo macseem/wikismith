@@ -1,6 +1,17 @@
-import { db, users } from '@wikismith/db';
 import { eq } from 'drizzle-orm';
+import type { db as dbClient } from '@wikismith/db';
 import { decryptSecret, encryptSecret } from './token-crypto';
+
+type DbModule = typeof import('@wikismith/db');
+type StoredUser = Awaited<ReturnType<typeof dbClient.query.users.findFirst>>;
+
+const loadDb = async (): Promise<DbModule> => {
+  try {
+    return await import('@wikismith/db');
+  } catch (error) {
+    throw new Error('Failed to load database module.', { cause: error });
+  }
+};
 
 interface WorkOSUserPayload {
   id: string;
@@ -76,6 +87,8 @@ export const syncAuthenticatedUser = async (
   user: WorkOSUserPayload,
   oauthTokens?: OauthTokensPayload,
 ): Promise<void> => {
+  const { db, users } = await loadDb();
+
   const [storedUser] = await db
     .insert(users)
     .values({
@@ -128,11 +141,14 @@ export const syncAuthenticatedUser = async (
     .where(eq(users.id, storedUser.id));
 };
 
-export const getStoredUserByWorkOSId = async (workosId: string) => {
+export const getStoredUserByWorkOSId = async (workosId: string): Promise<StoredUser> => {
+  const { db } = await loadDb();
   return db.query.users.findFirst({ where: (table, { eq }) => eq(table.workosId, workosId) });
 };
 
 export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<string | null> => {
+  const { db, users } = await loadDb();
+
   const record = await db.query.users.findFirst({
     where: (table, { eq }) => eq(table.workosId, workosId),
     columns: {
@@ -198,6 +214,8 @@ export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<
 };
 
 export const deleteUserByWorkOSId = async (workosId: string): Promise<boolean> => {
+  const { db, users } = await loadDb();
+
   const deleted = await db
     .delete(users)
     .where(eq(users.workosId, workosId))
