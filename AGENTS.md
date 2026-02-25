@@ -218,6 +218,15 @@ Skills are defined in `skills/` and symlinked to `.cursor/rules/` (Cursor) and `
 - PRs use the template at `.github/pull_request_template.md`
 - Branch naming: `feat/`, `fix/`, `chore/`, `docs/` prefixes
 
+## 8. CI/CD Notes
+
+- CI runs on GitHub Actions with `ubuntu-latest` (see `.github/workflows/ci.yml`)
+- **Blacksmith migration**: once the repo moves to a GitHub **organization** (not personal), migrate CI to [Blacksmith](https://blacksmith.sh/) runners for faster builds:
+  - Change `runs-on: ubuntu-latest` → `runs-on: blacksmith-2vcpu-ubuntu-2404`
+  - Change `actions/setup-node@v4` → `useblacksmith/setup-node@v5`
+  - Blacksmith does not support personal repositories — org-level only
+- Deployment target: Vercel with custom domain `wikismith.dudkin-garage.com` (Cloudflare DNS via Terraform in `terraform/`)
+
 ---
 
 > **Note**: All agents should read this file first for project context before performing any task. Always check ClickUp for current task status before starting work.
