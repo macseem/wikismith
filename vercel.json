@@ -3,7 +3,7 @@
   "buildCommand": "pnpm exec turbo build --filter=@wikismith/web...",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "outputDirectory": "apps/web/.next",
+  "outputDirectory": ".next",
   "ignoreCommand": "npx turbo-ignore",
   "git": {
     "deploymentEnabled": {
