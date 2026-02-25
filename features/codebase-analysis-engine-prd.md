@@ -151,6 +151,26 @@ The analyzer output MUST conform to a schema similar to the following (exact fie
 - **OQ-4**: Should importance scores be 0–1 normalized, or a discrete tier (high/medium/low)? Affects downstream consumer logic.
 - **OQ-5**: Do we need to support analysis of partial/cloned repos (e.g., shallow clone with only certain paths)? May affect ingestion contract.
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Language and framework detection from manifests and file extensions
+- Entry point identification (main files, package.json scripts)
+- File importance scoring with heuristics
+- Import graph construction for JS/TS
+- Function/class signature extraction for JS/TS
+- Analysis produces `IAnalysisResult` matching output schema
+- Pure static analysis, no network calls required
+
+### What's Not Yet Implemented
+- Go, Rust, Java, C#, Ruby support
+- Deep AST parsing (currently uses regex heuristics)
+
+### Current Limitations
+- Only JS/TS and Python fully supported; other languages fall back to heuristics or are unsupported.
+
 ## 12. Milestones
 
 ### M1: Foundation (MVP)

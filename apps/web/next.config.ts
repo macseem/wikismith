@@ -1,7 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+config({ path: resolve(import.meta.dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ['openai', '@neondatabase/serverless', 'tar'],
 };
 
 export default nextConfig;

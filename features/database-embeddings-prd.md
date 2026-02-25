@@ -335,6 +335,24 @@ export const db = drizzle(sql);
 - **OQ-7**: Drizzle + pgvector: does Drizzle have native vector column support, or do we need raw SQL for vector ops? Check `pgvector` npm package compatibility.
 - **OQ-8**: Connection string: use Neon's pooled or direct endpoint? Pooled recommended for serverless.
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Drizzle schema defined for: users, repositories, wikiVersions, wikiPages, generationJobs
+- Neon client configured (db/client.ts)
+
+### What's Not Yet Implemented
+- Actual DB usage (app uses file cache instead)
+- Embeddings table and pgvector
+- Migrations pushed to Neon
+- Embeddings pipeline
+- RAG integration
+
+### Current Limitations
+- Schema exists but app does not use it; wiki content and cache are file-based. Embeddings and RAG not available.
+
 ## 12. Milestones
 
 ### M1: Schema & ORM Foundation (MVP)

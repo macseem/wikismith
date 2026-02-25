@@ -1,10 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const REPO_URL = 'https://github.com/macseem/wikismith';
-const OWNER = 'macseem';
-const REPO = 'wikismith';
-
-test.describe('API: /api/generate', () => {
+test.describe('API: /api/generate — validation', () => {
   test('rejects missing URL with 400', async ({ request }) => {
     const res = await request.post('/api/generate', {
       data: {},
@@ -23,46 +19,20 @@ test.describe('API: /api/generate', () => {
     expect(body.error).toBeTruthy();
   });
 
-  test('content-length guard exists in route handler', async ({ request }) => {
-    // The content-length check is a server-side guard against oversized payloads.
-    // Playwright overrides content-length with the actual body size, so we test
-    // the normal flow and verify the guard code exists via a normal request.
+  test('rejects non-existent repository with correct error', async ({ request }) => {
     const res = await request.post('/api/generate', {
-      data: { url: REPO_URL },
+      data: { url: 'https://github.com/nonexistent-user-xyz123/nonexistent-repo-xyz123' },
     });
-    // Should succeed (body is small enough)
-    expect(res.status()).not.toBe(413);
-  });
-
-  test('generates wiki for a real repository', async ({ request }) => {
-    const res = await request.post('/api/generate', {
-      data: { url: REPO_URL, force: true },
-    });
-    expect(res.status()).toBe(200);
-
+    expect(res.status()).toBe(404);
     const body = await res.json();
-    expect(body.owner).toBe(OWNER);
-    expect(body.repo).toBe(REPO);
-    expect(body.commitSha).toBeTruthy();
-    expect(body.cached).toBe(false);
+    expect(body.code).toBe('REPO_NOT_FOUND');
   });
 
-  test('returns cached wiki on second call', async ({ request }) => {
-    // First call (may be cached from previous test, but force=false)
-    const first = await request.post('/api/generate', {
-      data: { url: REPO_URL },
+  test('accepts small body without 413', async ({ request }) => {
+    const res = await request.post('/api/generate', {
+      data: { url: 'https://github.com/owner/repo' },
     });
-    expect(first.status()).toBe(200);
-
-    // Second call should be cached
-    const second = await request.post('/api/generate', {
-      data: { url: REPO_URL },
-    });
-    expect(second.status()).toBe(200);
-    const body = await second.json();
-    expect(body.cached).toBe(true);
-    expect(body.owner).toBe(OWNER);
-    expect(body.repo).toBe(REPO);
+    expect(res.status()).not.toBe(413);
   });
 });
 
@@ -70,32 +40,7 @@ test.describe('API: /api/wiki/[owner]/[repo]', () => {
   test('returns 404 for non-existent wiki', async ({ request }) => {
     const res = await request.get('/api/wiki/nobody/nonexistent-repo-xyz');
     expect(res.status()).toBe(404);
-  });
-
-  test('returns generated wiki data', async ({ request }) => {
-    // Ensure wiki is generated first
-    await request.post('/api/generate', { data: { url: REPO_URL } });
-
-    const res = await request.get(`/api/wiki/${OWNER}/${REPO}`);
-    expect(res.status()).toBe(200);
-
-    const wiki = await res.json();
-    expect(wiki.owner).toBe(OWNER);
-    expect(wiki.repo).toBe(REPO);
-    expect(wiki.commitSha).toBeTruthy();
-    expect(wiki.pages).toBeInstanceOf(Array);
-    expect(wiki.pages.length).toBeGreaterThan(0);
-
-    const overview = wiki.pages.find(
-      (p: { slug: string }) => p.slug === 'overview',
-    );
-    expect(overview).toBeTruthy();
-    expect(overview.title).toBeTruthy();
-    expect(overview.content).toBeTruthy();
-
-    expect(wiki.analysis).toBeTruthy();
-    expect(wiki.analysis.fileCount).toBeGreaterThan(0);
-    expect(wiki.analysis.languages).toBeTruthy();
-    expect(wiki.analysis.frameworks).toBeInstanceOf(Array);
+    const body = await res.json();
+    expect(body.error).toBe('Wiki not found');
   });
 });

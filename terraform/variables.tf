@@ -19,5 +19,5 @@ variable "subdomain" {
 variable "vercel_cname_target" {
   description = "Vercel CNAME target for custom domain"
   type        = string
-  default     = "cname.vercel-dns.com"
+  default     = "df2e5f1d3be69fea.vercel-dns-016.com"
 }

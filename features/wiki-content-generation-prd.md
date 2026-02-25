@@ -199,6 +199,28 @@ Exact schema to be finalized in `packages/shared` and documented in an ADR.
 - **OQ-6**: What model for v1? `gpt-4o-mini` is cost-effective; `gpt-4o` may yield higher quality. Need cost/quality trade-off.
 - **OQ-7**: Should we support alternative AI providers (Anthropic, local models) from day one, or design for OpenAI first and abstract later?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Overview page + feature pages + child pages from feature tree
+- OpenAI gpt-4o-mini with configurable model
+- Citations extracted using regex from markdown output
+- Prompts include file contents (truncated to 3000 chars per file)
+- Progress callback (onProgress) for streaming
+- Stream function (streamWikiPage) for individual page streaming
+
+### What's Not Yet Implemented
+- Citation validation
+- Quality checks
+- Retry on failure
+- Hallucination detection
+- Chunking for large features that exceed token limits
+
+### Current Limitations
+- Citations are extracted via regex; no validation that URLs reference valid files. Large features may hit token limits without chunking.
+
 ## 12. Milestones
 
 ### M1: Core Generation (MVP)

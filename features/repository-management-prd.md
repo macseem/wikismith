@@ -277,6 +277,26 @@ Without a well-designed repository management dashboard, users cannot efficientl
 - **OQ-7**: Rate limit handling: When we hit 5K/hr, do we show cached data only and disable refresh? Or queue and retry?
 - **OQ-8**: Repo card layout: Grid vs. list view? Allow user preference?
 
+## Implementation Status
+
+> Last updated: 2026-02-25
+
+### What's Implemented
+- Nothing yet; blocked by Authentication PRD
+
+### What's Not Yet Implemented
+- Repo list dashboard
+- GitHub API integration for repo list
+- URL paste flow
+- Private repo access
+- Wiki generation trigger
+- Repo settings
+- Delete wiki
+- All features described in this PRD
+
+### Current Limitations
+- Dashboard does not exist. Depends on Authentication (WorkOS + GitHub OAuth) being implemented first.
+
 ## 12. Milestones
 
 ### M1: Repo List & Basic Dashboard (MVP)

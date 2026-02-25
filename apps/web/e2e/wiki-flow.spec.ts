@@ -1,64 +1,117 @@
 import { test, expect } from '@playwright/test';
 
-const REPO_URL = 'https://github.com/macseem/wikismith';
-const OWNER = 'macseem';
-const REPO = 'wikismith';
+const SMALL_REPO_URL = 'https://github.com/jonschlinkert/is-number';
+const OWNER = 'jonschlinkert';
+const REPO = 'is-number';
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Wiki generation E2E flow', () => {
-  test.beforeEach(async ({ request }) => {
-    // Pre-generate the wiki via API so UI tests don't wait 2+ minutes
+  test('generates wiki via API (SSE streaming)', async ({ request }) => {
     const res = await request.post('/api/generate', {
-      data: { url: REPO_URL },
+      data: { url: SMALL_REPO_URL, force: true },
+      headers: { Accept: 'text/event-stream' },
     });
     expect(res.ok()).toBe(true);
+
+    const text = await res.text();
+    const lines = text.split('\n');
+
+    const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+    let currentEvent = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7);
+      } else if (line.startsWith('data: ')) {
+        events.push({ event: currentEvent, data: JSON.parse(line.slice(6)) });
+      }
+    }
+
+    const progressEvents = events.filter((e) => e.event === 'progress');
+    expect(progressEvents.length).toBeGreaterThan(0);
+
+    const stages = progressEvents.map((e) => e.data.stage);
+    expect(stages).toContain('ingesting');
+    expect(stages).toContain('analyzing');
+    expect(stages).toContain('classifying');
+    expect(stages).toContain('generating');
+
+    const completeEvent = events.find((e) => e.event === 'complete');
+    expect(completeEvent).toBeTruthy();
+    expect(completeEvent!.data.owner).toBe(OWNER);
+    expect(completeEvent!.data.repo).toBe(REPO);
+    expect(completeEvent!.data.commitSha).toBeTruthy();
+  });
+
+  test('returns cached wiki on second generate call', async ({ request }) => {
+    const res = await request.post('/api/generate', {
+      data: { url: SMALL_REPO_URL },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.cached).toBe(true);
+    expect(body.owner).toBe(OWNER);
+    expect(body.repo).toBe(REPO);
+  });
+
+  test('wiki API returns generated data', async ({ request }) => {
+    const res = await request.get(`/api/wiki/${OWNER}/${REPO}`);
+    expect(res.status()).toBe(200);
+
+    const wiki = await res.json();
+    expect(wiki.owner).toBe(OWNER);
+    expect(wiki.repo).toBe(REPO);
+    expect(wiki.commitSha).toBeTruthy();
+    expect(wiki.pages).toBeInstanceOf(Array);
+    expect(wiki.pages.length).toBeGreaterThan(0);
+
+    const overview = wiki.pages.find((p: { slug: string }) => p.slug === 'overview');
+    expect(overview).toBeTruthy();
+    expect(overview.title).toBe('Overview');
+    expect(overview.content.length).toBeGreaterThan(50);
+
+    expect(wiki.analysis).toBeTruthy();
+    expect(wiki.analysis.fileCount).toBeGreaterThan(0);
+    expect(wiki.analysis.languages).toBeTruthy();
+    expect(wiki.analysis.frameworks).toBeInstanceOf(Array);
   });
 
   test('homepage renders correctly', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.locator('h1')).toContainText('WikiSmith');
-    await expect(
-      page.getByPlaceholder(/github\.com/i),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /generate wiki/i }),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/github\.com/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /generate wiki/i })).toBeVisible();
 
-    // Feature cards
     await expect(page.getByText('Feature-Organized')).toBeVisible();
     await expect(page.getByText('Code Citations')).toBeVisible();
     await expect(page.getByText('AI-Powered')).toBeVisible();
   });
 
-  test('submitting a repo URL navigates to wiki page', async ({ page }) => {
+  test('submitting a cached repo navigates to wiki page', async ({ page }) => {
     await page.goto('/');
 
     const input = page.getByPlaceholder(/github\.com/i);
-    await input.fill(REPO_URL);
+    await input.fill(SMALL_REPO_URL);
 
     const button = page.getByRole('button', { name: /generate wiki/i });
     await button.click();
 
-    // Should navigate to the wiki page (cached, so fast)
-    await page.waitForURL(`/wiki/${OWNER}/${REPO}`, { timeout: 60_000 });
+    await page.waitForURL(`/wiki/${OWNER}/${REPO}`, { timeout: 30_000 });
     await expect(page).toHaveURL(`/wiki/${OWNER}/${REPO}`);
   });
 
   test('wiki page shows sidebar and content', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
 
-    // Wait for wiki to load (fetches from API)
-    await expect(page.locator('article h1')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
-    // Sidebar should be visible with navigation items
     const sidebar = page.locator('nav');
     await expect(sidebar).toBeVisible();
 
-    // Should show at least the overview in the sidebar
     const sidebarLinks = sidebar.getByRole('link');
-    expect(await sidebarLinks.count()).toBeGreaterThan(0);
+    expect(await sidebarLinks.count()).toBeGreaterThan(1);
 
-    // Header should show repo info
     await expect(
       page.getByRole('banner').getByText(`${OWNER}/${REPO}`),
     ).toBeVisible();
@@ -66,32 +119,23 @@ test.describe('Wiki generation E2E flow', () => {
 
   test('sidebar navigation works between pages', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
-    // Wait for content to load
-    await expect(page.locator('article h1')).toBeVisible({ timeout: 30_000 });
-
-    // Find sidebar list links (inside <ul>, not the header link)
     const sidebarList = page.locator('nav ul');
     const listLinks = sidebarList.getByRole('link');
     const linkCount = await listLinks.count();
-
-    // Must have overview + at least one feature page
     expect(linkCount).toBeGreaterThan(1);
 
-    // Click a feature page link (skip index 0 which is overview)
     const featureLink = listLinks.nth(1);
     const featureHref = await featureLink.getAttribute('href');
     expect(featureHref).toBeTruthy();
     await featureLink.click();
 
-    // URL should now include the feature slug
     await page.waitForURL(featureHref!, { timeout: 15_000 });
 
-    // Content should update with the feature page
     const heading = page.locator('article h1');
-    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible({ timeout: 10_000 });
 
-    // Navigate back to overview via the overview link
     const overviewLink = listLinks.first();
     await overviewLink.click();
     await page.waitForURL(`/wiki/${OWNER}/${REPO}`, { timeout: 15_000 });
@@ -99,26 +143,34 @@ test.describe('Wiki generation E2E flow', () => {
 
   test('wiki page renders markdown content', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
-    // Wait for content
-    await expect(page.locator('article h1')).toBeVisible({ timeout: 30_000 });
-
-    // Content area should have prose elements (rendered markdown)
     const prose = page.locator('article .prose');
     await expect(prose).toBeVisible();
 
-    // Should have at least one paragraph of content
     const paragraphs = prose.locator('p');
     expect(await paragraphs.count()).toBeGreaterThan(0);
   });
 
   test('WikiSmith header link navigates to homepage', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
-    await expect(page.locator('article h1')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
-    // Click the "WikiSmith" link in the page header (not sidebar)
     await page.getByRole('link', { name: 'WikiSmith', exact: true }).click();
     await expect(page).toHaveURL('/');
     await expect(page.locator('h1')).toContainText('WikiSmith');
+  });
+
+  test('generation error shows message and retry button', async ({ page }) => {
+    await page.goto('/');
+
+    const input = page.getByPlaceholder(/github\.com/i);
+    await input.fill('https://github.com/nonexistent-xyz123/no-repo-xyz123');
+
+    const button = page.getByRole('button', { name: /generate wiki/i });
+    await button.click();
+
+    await expect(page.getByText(/not found/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/try again/i)).toBeVisible();
   });
 });
