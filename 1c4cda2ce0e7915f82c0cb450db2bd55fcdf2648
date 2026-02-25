@@ -1,0 +1,23 @@
+packages/analyzer/src/ingestion/extract.ts
+  d43df26bacbf45e2 4,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "1c4cda2ce0e7915f82c0cb450db2bd55fcdf2648",
+  "prompts": {
+    "d43df26bacbf45e2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "fa8a9f5c-8916-462a-8993-23dcab69c5f4",
+        "model": "claude-4.6-opus-high-thinking"
+      },
+      "human_author": "Maksym Dudkin <lugamax@gmail.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 5,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
