@@ -1,5 +1,5 @@
 import type { IWikiPage, IClassifiedFeatureTree } from '@wikismith/shared';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join, resolve, sep } from 'path';
 
 export interface StoredWiki {
@@ -52,6 +52,23 @@ export const getWiki = (owner: string, repo: string): StoredWiki | undefined => 
 };
 
 export const hasWiki = (owner: string, repo: string): boolean => existsSync(filePath(owner, repo));
+
+export const deleteWiki = (owner: string, repo: string, workosUserId?: string): boolean => {
+  const path = filePath(owner, repo);
+  if (!existsSync(path)) {
+    return false;
+  }
+
+  if (workosUserId) {
+    const wiki = getWiki(owner, repo);
+    if (wiki?.generatedByWorkosId && wiki.generatedByWorkosId !== workosUserId) {
+      return false;
+    }
+  }
+
+  unlinkSync(path);
+  return true;
+};
 
 interface ListRecentWikisOptions {
   limit?: number;

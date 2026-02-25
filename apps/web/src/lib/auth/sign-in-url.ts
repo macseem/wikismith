@@ -4,6 +4,7 @@ interface GetGitHubSignInUrlOptions {
   returnPathname?: string;
   promptConsent?: boolean;
   state?: string;
+  loginHint?: string;
 }
 
 const toUrlSafeBase64 = (value: string): string =>
@@ -29,6 +30,7 @@ export const getGitHubSignInUrl = ({
   returnPathname,
   promptConsent = false,
   state,
+  loginHint,
 }: GetGitHubSignInUrlOptions = {}): string => {
   const clientId = process.env['WORKOS_CLIENT_ID'];
   if (!clientId) {
@@ -48,6 +50,7 @@ export const getGitHubSignInUrl = ({
     clientId,
     redirectUri,
     screenHint: 'sign-in',
+    loginHint,
     prompt: promptConsent ? 'consent' : undefined,
     state: buildState(returnPathname, state),
   });

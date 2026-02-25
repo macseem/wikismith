@@ -281,31 +281,25 @@ Without a well-designed repository management dashboard, users cannot efficientl
 
 > Last updated: 2026-02-25
 
-### What Is Implemented (Dashboard Baseline)
+### What Is Implemented
 
-Delivered as part of the Authentication ticket (`86c8ez7tz`) and now treated as the baseline for this dashboard PRD:
+Implemented across Authentication + Repository Dashboard tickets (`86c8ez7tz`, `86c8ez7xk`):
 
-- Protected `/dashboard` route for authenticated users
-- Dashboard header with account context and quick links to Settings/Account
-- Inline wiki generation form in dashboard (same generation path as homepage)
-- Daily generation quota visibility (`used/limit/reset`)
-- Authorization health card with reconnect CTA when provider scopes are missing
-- Recent generation links from local wiki cache
-
-### What Remains for This Ticket (`86c8ez7xk`)
-
-- GitHub-backed repository list experience (cards with metadata + status)
-- Server-side repo fetch via user OAuth token + cache TTL + refresh behavior
-- Search/filter/pagination for large repo sets
-- Repo-level settings management (tracked branch, auto-update)
-- Delete wiki flow with confirmation and status transitions
-- Robust status model integration (`not_generated`, `generating`, `ready`, `failed`) against persisted DB records
+- Protected `/dashboard` route with authenticated user context
+- GitHub-backed repository list (token-authenticated) with cached fetches and manual refresh
+- Repository cards with metadata (full name, description, language, visibility, last push)
+- Wiki status badge support: `not_generated`, `generating`, `ready`, `failed`
+- Search + filter (language/status) and cursor-style pagination controls
+- In-dashboard URL paste flow for public/out-of-list repositories
+- Per-repo actions: generate/regenerate, view wiki, delete wiki with confirmation
+- Repository settings control: tracked branch + auto-update toggle persisted to `repositories`
+- Re-auth prompts for missing provider scopes in dashboard and repo actions
 
 ### Current Limitations
 
-- Dashboard currently reflects account/generation utilities, not a full GitHub repository management surface
-- Recent items are sourced from local cache, not user-scoped persisted repo index
-- Repo discovery, filtering, and settings UX remain unimplemented
+- Repo settings are presented in an inline expandable panel rather than a dedicated modal component
+- Wiki status persistence is hybrid (cache + DB-backed metadata); full DB-native wiki content/version pipeline remains future work
+- Repo list cache is currently in-memory; Neon/KV-backed cache is optional future hardening for multi-instance scale
 
 ## 12. Milestones
 
