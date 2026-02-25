@@ -50,6 +50,3 @@ next-env.d.ts
 
 # wiki cache
 /.wikismith-cache/
-
-# leaked tarball extracts from analyzer
-/*-*-*/

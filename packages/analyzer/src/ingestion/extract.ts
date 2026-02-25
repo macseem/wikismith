@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
-import { extract as tarExtract, type ReadEntry } from 'tar';
+import { list as tarList, type ReadEntry } from 'tar';
 import { IngestionError } from '@wikismith/shared';
 import {
   BINARY_EXTENSIONS,
@@ -50,7 +50,7 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
   const gunzip = createGunzip();
   const readable = Readable.from(Buffer.from(tarballBuffer));
 
-  const extractor = tarExtract({
+  const extractor = tarList({
     onReadEntry: (entry: ReadEntry) => {
       const fullPath = entry.path;
       const slashIdx = fullPath.indexOf('/');
