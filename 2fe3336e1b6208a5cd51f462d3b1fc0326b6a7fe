@@ -1,0 +1,27 @@
+vercel.json
+  d43df26bacbf45e2 3
+terraform/variables.tf
+  d43df26bacbf45e2 22
+terraform/dns.tf
+  d43df26bacbf45e2 6-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "2fe3336e1b6208a5cd51f462d3b1fc0326b6a7fe",
+  "prompts": {
+    "d43df26bacbf45e2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "fa8a9f5c-8916-462a-8993-23dcab69c5f4",
+        "model": "claude-4.6-opus-high-thinking"
+      },
+      "human_author": "Maksym Dudkin <lugamax@gmail.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
