@@ -28,7 +28,44 @@ const hasNextPage = (linkHeader: string | null): boolean => {
   return linkHeader.split(',').some((segment) => segment.includes('rel="next"'));
 };
 
-const throwGitHubError = (response: Response): never => {
+interface GitHubErrorPayload {
+  message?: string;
+  documentation_url?: string;
+}
+
+const readGitHubErrorPayload = async (response: Response): Promise<GitHubErrorPayload | null> => {
+  try {
+    const payload = (await response.clone().json()) as GitHubErrorPayload;
+    if (payload && typeof payload === 'object') {
+      return payload;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const throwGitHubError = async (response: Response, operation: string): Promise<never> => {
+  const payload = await readGitHubErrorPayload(response);
+  const oauthScopes = response.headers.get('x-oauth-scopes');
+  const acceptedScopes = response.headers.get('x-accepted-oauth-scopes');
+  const ssoHeader = response.headers.get('x-github-sso');
+
+  console.error('[GitHub API] Request failed', {
+    operation,
+    status: response.status,
+    statusText: response.statusText,
+    message: payload?.message,
+    documentationUrl: payload?.documentation_url,
+    oauthScopes,
+    acceptedScopes,
+    githubSso: ssoHeader,
+    rateLimitRemaining: response.headers.get('x-ratelimit-remaining'),
+    rateLimitReset: response.headers.get('x-ratelimit-reset'),
+    requestId: response.headers.get('x-github-request-id'),
+  });
+
   if (response.status === 401) {
     throw new AppError(
       'GitHub authorization is missing or invalid. Please sign in again.',
@@ -52,9 +89,34 @@ const throwGitHubError = (response: Response): never => {
       );
     }
 
+    if (ssoHeader?.toLowerCase().includes('required')) {
+      throw new AppError(
+        'GitHub organization SSO authorization is required for one or more repositories. Authorize your token for that organization and retry.',
+        'GITHUB_SSO_AUTH_REQUIRED',
+        403,
+      );
+    }
+
+    const acceptedScopesList = (acceptedScopes ?? '')
+      .split(',')
+      .map((scope) => scope.trim())
+      .filter((scope) => scope.length > 0);
+    const hasRepoScopeHint =
+      acceptedScopesList.includes('repo') || acceptedScopesList.includes('public_repo');
+
+    if (hasRepoScopeHint || payload?.message?.toLowerCase().includes('scope')) {
+      throw new AppError(
+        'GitHub denied access to repository data. Re-authenticate and approve repository scopes.',
+        'MISSING_GITHUB_SCOPE',
+        403,
+      );
+    }
+
     throw new AppError(
-      'GitHub denied access to repository data. Re-authenticate and approve repo scopes.',
-      'MISSING_GITHUB_SCOPE',
+      payload?.message
+        ? `GitHub denied access: ${payload.message}`
+        : 'GitHub denied access to repository data due to policy restrictions.',
+      'GITHUB_FORBIDDEN',
       403,
     );
   }
@@ -91,7 +153,7 @@ export const fetchGitHubReposPage = async (
   });
 
   if (!response.ok) {
-    throwGitHubError(response);
+    await throwGitHubError(response, 'fetch_user_repos_page');
   }
 
   const payload = (await response.json()) as Array<{
@@ -140,7 +202,7 @@ export const fetchGitHubBranches = async (
     );
 
     if (!response.ok) {
-      throwGitHubError(response);
+      await throwGitHubError(response, 'fetch_repository_branches');
     }
 
     const payload = (await response.json()) as Array<{ name: string }>;
@@ -167,7 +229,7 @@ export const fetchGitHubRepository = async (
   });
 
   if (!response.ok) {
-    throwGitHubError(response);
+    await throwGitHubError(response, 'fetch_repository');
   }
 
   const payload = (await response.json()) as {

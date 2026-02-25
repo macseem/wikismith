@@ -44,6 +44,28 @@ interface StoredGitHubTokenRecord {
   githubTokenExpiresAt: Date | null;
 }
 
+const parseOauthExpiresAt = (expiresAt?: string | number): Date | null => {
+  if (expiresAt === undefined) {
+    return null;
+  }
+
+  if (typeof expiresAt === 'number') {
+    const timestamp = expiresAt < 1_000_000_000_000 ? expiresAt * 1000 : expiresAt;
+    const parsed = new Date(timestamp);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const numeric = Number(expiresAt);
+  if (Number.isFinite(numeric)) {
+    const timestamp = numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+    const parsed = new Date(timestamp);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(expiresAt);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const getDisplayName = (user: WorkOSUserPayload): string | null => {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
   return fullName.length > 0 ? fullName : null;
@@ -169,7 +191,14 @@ export const syncAuthenticatedUser = async (
     })
     .returning({ id: users.id });
 
-  if (!oauthTokens?.accessToken || !storedUser) {
+  const fallbackUser =
+    storedUser ??
+    (await db.query.users.findFirst({
+      where: (table, { eq }) => eq(table.workosId, user.id),
+      columns: { id: true },
+    }));
+
+  if (!oauthTokens?.accessToken || !fallbackUser) {
     return;
   }
 
@@ -177,16 +206,13 @@ export const syncAuthenticatedUser = async (
   const encryptedRefreshToken = oauthTokens.refreshToken
     ? encryptSecret(oauthTokens.refreshToken)
     : null;
+  const parsedExpiresAt = parseOauthExpiresAt(oauthTokens.expiresAt);
   const expiresAt =
-    oauthTokens.expiresAt === undefined
-      ? null
-      : new Date(
-          typeof oauthTokens.expiresAt === 'number' && oauthTokens.expiresAt < 1_000_000_000_000
-            ? oauthTokens.expiresAt * 1000
-            : oauthTokens.expiresAt,
-        );
+    oauthTokens.refreshToken || !parsedExpiresAt || parsedExpiresAt.getTime() > Date.now()
+      ? parsedExpiresAt
+      : null;
 
-  await db
+  const updated = await db
     .update(users)
     .set({
       githubTokenEncrypted: encryptedAccessToken.encrypted,
@@ -198,7 +224,12 @@ export const syncAuthenticatedUser = async (
       githubTokenExpiresAt: expiresAt,
       updatedAt: new Date(),
     })
-    .where(eq(users.id, storedUser.id));
+    .where(eq(users.id, fallbackUser.id))
+    .returning({ id: users.id });
+
+  if (updated.length === 0) {
+    return;
+  }
 };
 
 export const getStoredUserByWorkOSId = async (workosId: string): Promise<StoredUser> => {

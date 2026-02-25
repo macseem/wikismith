@@ -134,6 +134,11 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
 
   const usagePercent = Math.min(100, Math.round((dailyUsage.used / dailyUsage.limit) * 100));
   const dashboardError = dashboardResult.error;
+  const supportsReconnect =
+    dashboardError?.code === 'MISSING_GITHUB_SCOPE' ||
+    dashboardError?.code === 'MISSING_GITHUB_TOKEN' ||
+    dashboardError?.code === 'GITHUB_SSO_AUTH_REQUIRED' ||
+    dashboardError?.code === 'UNAUTHENTICATED';
 
   const queryParams = new URLSearchParams();
   if (query) {
@@ -273,12 +278,34 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
             </Button>
           </form>
 
-          {dashboardError?.code === 'MISSING_GITHUB_SCOPE' && (
+          {supportsReconnect && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
-              <p>
-                Repository scopes are missing. Re-authenticate to load private and collaborator
-                repositories.
-              </p>
+              {dashboardError?.code === 'MISSING_GITHUB_TOKEN' ? (
+                <p>
+                  GitHub provider token is missing for your session. Reconnect account and ensure
+                  WorkOS GitHub connection is configured to return OAuth tokens.
+                </p>
+              ) : dashboardError?.code === 'UNAUTHENTICATED' ? (
+                <p>
+                  GitHub authorization expired or is invalid. Reconnect account to restore
+                  repository access.
+                </p>
+              ) : dashboardError?.code === 'GITHUB_SSO_AUTH_REQUIRED' ? (
+                <p>
+                  GitHub organization SSO authorization is required for one or more repositories.
+                  Authorize your token for the org, then reconnect account.
+                </p>
+              ) : (
+                <p>
+                  Repository scopes are missing. Re-authenticate to load private and collaborator
+                  repositories.
+                </p>
+              )}
+
+              {dashboardError?.message && (
+                <p className="mt-2 text-xs text-amber-200/80">Details: {dashboardError.message}</p>
+              )}
+
               <Button asChild size="sm" variant="outline" className="mt-3">
                 <Link href="/sign-in?redirect=/dashboard&reauth=github_scope">
                   Reconnect account
@@ -318,7 +345,7 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
             </div>
           )}
 
-          {dashboardError && dashboardError.code !== 'MISSING_GITHUB_SCOPE' && (
+          {dashboardError && !supportsReconnect && (
             <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200 flex items-center gap-2">
               <AlertTriangle className="size-4" />
               <span>{dashboardError.message}</span>

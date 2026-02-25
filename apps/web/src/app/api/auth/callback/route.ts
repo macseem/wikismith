@@ -8,6 +8,27 @@ const callbackBaseUrl = process.env['APP_BASE_URL'];
 const isGithubScopeReauthState = (state?: string): boolean =>
   Boolean(state && state.startsWith('github_scope'));
 
+const logGitHubAuthResponse = async (label: string, response: Response): Promise<void> => {
+  let message: string | undefined;
+  try {
+    const payload = (await response.clone().json()) as { message?: string };
+    message = payload?.message;
+  } catch {
+    message = undefined;
+  }
+
+  console.error('[Auth callback] GitHub scope verification failed', {
+    step: label,
+    status: response.status,
+    statusText: response.statusText,
+    message,
+    oauthScopes: response.headers.get('x-oauth-scopes'),
+    acceptedScopes: response.headers.get('x-accepted-oauth-scopes'),
+    githubSso: response.headers.get('x-github-sso'),
+    requestId: response.headers.get('x-github-request-id'),
+  });
+};
+
 const hasRepositoryScope = async (accessToken: string): Promise<boolean> => {
   const response = await fetch('https://api.github.com/user', {
     headers: {
@@ -20,6 +41,7 @@ const hasRepositoryScope = async (accessToken: string): Promise<boolean> => {
   });
 
   if (!response.ok) {
+    await logGitHubAuthResponse('user', response);
     return false;
   }
 
@@ -38,6 +60,10 @@ const hasRepositoryScope = async (accessToken: string): Promise<boolean> => {
       },
     );
 
+    if (!probeResponse.ok) {
+      await logGitHubAuthResponse('user_repos_probe', probeResponse);
+    }
+
     return probeResponse.ok;
   }
 
@@ -52,17 +78,6 @@ export const GET = handleAuth({
   baseURL: callbackBaseUrl,
   returnPathname: '/dashboard',
   onSuccess: async ({ user, oauthTokens, state }) => {
-    if (isGithubScopeReauthState(state) && !oauthTokens?.accessToken) {
-      throw new Error('MISSING_PROVIDER_TOKENS');
-    }
-
-    if (isGithubScopeReauthState(state) && oauthTokens?.accessToken) {
-      const hasScope = await hasRepositoryScope(oauthTokens.accessToken);
-      if (!hasScope) {
-        throw new Error('MISSING_REPO_SCOPE');
-      }
-    }
-
     await syncAuthenticatedUser(
       {
         id: user.id,
@@ -79,6 +94,17 @@ export const GET = handleAuth({
           }
         : undefined,
     );
+
+    if (!oauthTokens?.accessToken) {
+      throw new Error('MISSING_PROVIDER_TOKENS');
+    }
+
+    if (isGithubScopeReauthState(state)) {
+      const hasScope = await hasRepositoryScope(oauthTokens.accessToken);
+      if (!hasScope) {
+        throw new Error('MISSING_REPO_SCOPE');
+      }
+    }
   },
   onError: async ({ request, error }) => {
     const url = new URL('/sign-in', request.url);

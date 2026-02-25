@@ -126,8 +126,8 @@ const getGitHubToken = async (workosUserId: string): Promise<string> => {
   const token = await getGitHubAccessTokenByWorkOSId(workosUserId);
   if (!token) {
     throw new AppError(
-      'GitHub repository access is unavailable. Re-authenticate to grant repository scopes.',
-      'MISSING_GITHUB_SCOPE',
+      'GitHub token is not available for this session. Reconnect your account so WorkOS can return provider tokens.',
+      'MISSING_GITHUB_TOKEN',
       403,
       { reauthPath: REAUTH_PATH },
     );

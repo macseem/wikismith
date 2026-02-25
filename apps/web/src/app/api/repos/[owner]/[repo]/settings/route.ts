@@ -76,14 +76,19 @@ export const PATCH = async (
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AppError) {
+      const needsReconnect =
+        error.code === 'MISSING_GITHUB_SCOPE' ||
+        error.code === 'MISSING_GITHUB_TOKEN' ||
+        error.code === 'GITHUB_SSO_AUTH_REQUIRED' ||
+        error.code === 'UNAUTHENTICATED';
+
       return NextResponse.json(
         {
           error: error.message,
           code: error.code,
-          reauthPath:
-            error.code === 'MISSING_GITHUB_SCOPE'
-              ? '/sign-in?redirect=%2Fdashboard&reauth=github_scope'
-              : undefined,
+          reauthPath: needsReconnect
+            ? '/sign-in?redirect=%2Fdashboard&reauth=github_scope'
+            : undefined,
         },
         { status: error.statusCode },
       );
