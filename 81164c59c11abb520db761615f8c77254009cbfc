@@ -1,0 +1,23 @@
+vercel.json
+  d43df26bacbf45e2 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "81164c59c11abb520db761615f8c77254009cbfc",
+  "prompts": {
+    "d43df26bacbf45e2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "fa8a9f5c-8916-462a-8993-23dcab69c5f4",
+        "model": "claude-4.6-opus-high-thinking"
+      },
+      "human_author": "Maksym Dudkin <lugamax@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
