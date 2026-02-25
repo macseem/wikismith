@@ -56,7 +56,7 @@ export const POST = async (request: Request) => {
   }
 
   const accept = request.headers.get('accept') ?? '';
-  const wantsSSE = accept.includes('text/event-stream');
+  const wantsSSE = accept.split(',').some((t) => t.trim().startsWith('text/event-stream'));
 
   if (!wantsSSE) {
     return runSynchronous(parsed, body);

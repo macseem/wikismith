@@ -27,111 +27,115 @@ export const RepoInput = () => {
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError(null);
-      setProgress(null);
+  const runGeneration = useCallback(async () => {
+    setError(null);
+    setProgress(null);
 
-      const trimmed = url.trim();
-      if (!trimmed) return;
+    const trimmed = url.trim();
+    if (!trimmed) return;
 
-      setLoading(true);
-      abortRef.current = new AbortController();
+    setLoading(true);
+    abortRef.current = new AbortController();
 
-      try {
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'text/event-stream',
-          },
-          body: JSON.stringify({ url: trimmed }),
-          signal: abortRef.current.signal,
-        });
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({ url: trimmed }),
+        signal: abortRef.current.signal,
+      });
 
-        if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          setError(data.error ?? 'Failed to process repository');
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? 'Failed to process repository');
+        return;
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+
+      if (contentType.includes('application/json')) {
+        const data = (await response.json()) as {
+          owner?: string;
+          repo?: string;
+          error?: string;
+        };
+        if (!data.owner || !data.repo) {
+          setError(data.error ?? 'Invalid response from server');
           return;
         }
+        router.push(`/wiki/${data.owner}/${data.repo}`);
+        return;
+      }
 
-        const contentType = response.headers.get('content-type') ?? '';
+      if (!response.body) {
+        setError('Streaming not supported by the browser');
+        return;
+      }
 
-        if (contentType.includes('application/json')) {
-          const data = (await response.json()) as {
-            owner?: string;
-            repo?: string;
-            error?: string;
-          };
-          if (!data.owner || !data.repo) {
-            setError(data.error ?? 'Invalid response from server');
-            return;
-          }
-          router.push(`/wiki/${data.owner}/${data.repo}`);
-          return;
-        }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEvent = '';
+      let streamCompleted = false;
 
-        if (!response.body) {
-          setError('Streaming not supported by the browser');
-          return;
-        }
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let currentEvent = '';
-        let streamCompleted = false;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+          } else if (line.startsWith('data: ')) {
+            let data: Record<string, unknown>;
+            try {
+              data = JSON.parse(line.slice(6)) as Record<string, unknown>;
+            } catch {
+              continue;
+            }
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              currentEvent = line.slice(7);
-            } else if (line.startsWith('data: ')) {
-              let data: Record<string, unknown>;
-              try {
-                data = JSON.parse(line.slice(6)) as Record<string, unknown>;
-              } catch {
-                continue;
-              }
-
-              if (currentEvent === 'progress') {
-                setProgress(data as unknown as ProgressState);
-              } else if (currentEvent === 'complete') {
-                const { owner, repo } = data as { owner: string; repo: string };
-                streamCompleted = true;
-                router.push(`/wiki/${owner}/${repo}`);
-                return;
-              } else if (currentEvent === 'error') {
-                streamCompleted = true;
-                setError((data.error as string) ?? 'Generation failed');
-                return;
-              }
+            if (currentEvent === 'progress') {
+              setProgress(data as unknown as ProgressState);
+            } else if (currentEvent === 'complete') {
+              const { owner, repo } = data as { owner: string; repo: string };
+              streamCompleted = true;
+              router.push(`/wiki/${owner}/${repo}`);
+              return;
+            } else if (currentEvent === 'error') {
+              streamCompleted = true;
+              setError((data.error as string) ?? 'Generation failed');
+              return;
             }
           }
         }
-
-        if (!streamCompleted) {
-          setError('Connection lost. Please try again.');
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        console.error('[RepoInput] Submission failed:', err);
-        setError('An unexpected error occurred. Please try again.');
-      } finally {
-        setLoading(false);
-        setProgress(null);
-        abortRef.current = null;
       }
+
+      if (!streamCompleted) {
+        setError('Connection lost. Please try again.');
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[RepoInput] Submission failed:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+      setProgress(null);
+      abortRef.current = null;
+    }
+  }, [url, router]);
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      runGeneration();
     },
-    [url, router],
+    [runGeneration],
   );
 
   const progressLabel = progress ? STAGE_LABELS[progress.stage] ?? progress.stage : null;
@@ -195,10 +199,7 @@ export const RepoInput = () => {
           {!loading && (
             <button
               type="button"
-              onClick={() => {
-                setError(null);
-                handleSubmit(new Event('submit') as unknown as React.FormEvent);
-              }}
+              onClick={runGeneration}
               className="text-xs text-blue-400 hover:underline"
             >
               Try again
