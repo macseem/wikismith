@@ -28,7 +28,9 @@ export const POST = async (request: Request) => {
 
     const ingestion = await ingest(body.url, { ref: body.ref });
     const analysis = analyze(ingestion);
-    const featureTree = await classify(analysis, `${parsed.owner}/${parsed.name}`);
+    const featureTree = await classify(analysis, `${parsed.owner}/${parsed.name}`, {
+      commitSha: ingestion.commitSha,
+    });
 
     const pages = await generateWiki({
       featureTree,

@@ -40,6 +40,9 @@ const extractCitations = (content: string, repoFullName: string, commitSha: stri
   return citations;
 };
 
+const countTotalPages = (features: IClassifiedFeatureTree['features']): number =>
+  1 + features.reduce((sum, f) => sum + 1 + f.children.length, 0);
+
 export const generateWiki = async (
   input: GenerateInput,
   opts?: GenerateOptions,
@@ -47,10 +50,9 @@ export const generateWiki = async (
   const openai = new OpenAI({ apiKey: opts?.openaiApiKey ?? process.env['OPENAI_API_KEY'] });
   const model = opts?.model ?? 'gpt-4o-mini';
   const pages: IWikiPage[] = [];
-  const totalPages = input.featureTree.features.length + 1;
+  const totalPages = countTotalPages(input.featureTree.features);
   let completed = 0;
 
-  // Generate overview page
   const overviewResponse = await openai.chat.completions.create({
     model,
     messages: [
@@ -81,7 +83,6 @@ export const generateWiki = async (
   completed++;
   opts?.onProgress?.(completed, totalPages);
 
-  // Generate feature pages
   for (let i = 0; i < input.featureTree.features.length; i++) {
     const feature = input.featureTree.features[i]!;
     const prompt = buildWikiPagePrompt(
@@ -111,7 +112,9 @@ export const generateWiki = async (
       order: i + 1,
     });
 
-    // Generate sub-feature pages
+    completed++;
+    opts?.onProgress?.(completed, totalPages);
+
     for (let j = 0; j < feature.children.length; j++) {
       const child = feature.children[j]!;
       const childPrompt = buildWikiPagePrompt(
@@ -140,10 +143,10 @@ export const generateWiki = async (
         parentPageId: feature.id,
         order: j + 1,
       });
-    }
 
-    completed++;
-    opts?.onProgress?.(completed, totalPages);
+      completed++;
+      opts?.onProgress?.(completed, totalPages);
+    }
   }
 
   return pages;

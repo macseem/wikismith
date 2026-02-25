@@ -45,6 +45,7 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
   const files: ExtractedFile[] = [];
   const fileTree: string[] = [];
   let totalSizeBytes = 0;
+  let limitExceeded: 'files' | 'size' | null = null;
 
   const gunzip = createGunzip();
   const readable = Readable.from(Buffer.from(tarballBuffer));
@@ -52,7 +53,6 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
   const extractor = tarExtract({
     onReadEntry: (entry: ReadEntry) => {
       const fullPath = entry.path;
-      // GitHub tarballs prefix paths with `owner-repo-sha/`
       const slashIdx = fullPath.indexOf('/');
       const relativePath = slashIdx >= 0 ? fullPath.slice(slashIdx + 1) : fullPath;
 
@@ -61,12 +61,13 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
         return;
       }
 
-      if (files.length >= MAX_FILE_COUNT) {
+      fileTree.push(relativePath);
+
+      if (fileTree.length > MAX_FILE_COUNT) {
+        limitExceeded = 'files';
         entry.resume();
         return;
       }
-
-      fileTree.push(relativePath);
 
       if (shouldIgnore(relativePath)) {
         entry.resume();
@@ -77,6 +78,7 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
       totalSizeBytes += sizeBytes;
 
       if (totalSizeBytes > MAX_TOTAL_SIZE_BYTES) {
+        limitExceeded = 'size';
         entry.resume();
         return;
       }
@@ -104,7 +106,7 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
 
   await pipeline(readable, gunzip, extractor);
 
-  if (fileTree.length >= MAX_FILE_COUNT) {
+  if (limitExceeded === 'files') {
     throw new IngestionError(
       `Repository exceeds maximum file count (${MAX_FILE_COUNT} files). Consider a smaller repository or a specific branch.`,
       'REPO_TOO_LARGE',
@@ -112,7 +114,7 @@ export const extractTarball = async (tarballBuffer: ArrayBuffer): Promise<Extrac
     );
   }
 
-  if (totalSizeBytes > MAX_TOTAL_SIZE_BYTES) {
+  if (limitExceeded === 'size') {
     throw new IngestionError(
       `Repository exceeds maximum total size (${Math.round(MAX_TOTAL_SIZE_BYTES / 1_000_000)}MB). Consider a smaller repository.`,
       'REPO_TOO_LARGE',

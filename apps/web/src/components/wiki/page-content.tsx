@@ -1,5 +1,7 @@
 'use client';
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { IWikiPage } from '@wikismith/shared';
 
 interface PageContentProps {
@@ -16,8 +18,9 @@ export const WikiPageContent = ({ page }: PageContentProps) => (
         prose-code:text-emerald-400 prose-code:bg-zinc-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
         prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800
         prose-strong:text-white"
-      dangerouslySetInnerHTML={{ __html: markdownToHtml(page.content) }}
-    />
+    >
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{page.content}</ReactMarkdown>
+    </div>
     {page.citations.length > 0 && (
       <div className="mt-12 pt-6 border-t border-zinc-800">
         <h2 className="text-lg font-semibold mb-4 text-zinc-300">References</h2>
@@ -39,25 +42,3 @@ export const WikiPageContent = ({ page }: PageContentProps) => (
     )}
   </article>
 );
-
-const markdownToHtml = (md: string): string =>
-  md
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    .replace(/```[\s\S]*?```/g, (block) => {
-      const lines = block.split('\n');
-      const lang = lines[0]?.replace('```', '') ?? '';
-      const code = lines.slice(1, -1).join('\n');
-      return `<pre><code class="language-${lang}">${escapeHtml(code)}</code></pre>`;
-    })
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hupol])(.+)$/gm, '<p>$1</p>');
-
-const escapeHtml = (str: string): string =>
-  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

@@ -1,4 +1,5 @@
 import type { IAnalysisResult, IClassifiedFeatureTree, IFeatureNode } from '@wikismith/shared';
+import { AnalysisError } from '@wikismith/shared';
 import OpenAI from 'openai';
 
 const MAX_FILES_PER_CHUNK = 100;
@@ -8,6 +9,7 @@ export interface ClassifyOptions {
   openaiApiKey?: string;
   model?: string;
   maxFeatures?: number;
+  commitSha?: string;
 }
 
 const buildClassificationPrompt = (
@@ -74,6 +76,7 @@ export const classify = async (
 
   const allFeatures: IFeatureNode[] = [];
   const totalFiles = analysis.files.length;
+  const errors: Array<{ chunkIndex: number; error: string }> = [];
 
   for (let i = 0; i < totalFiles; i += MAX_FILES_PER_CHUNK) {
     const end = Math.min(i + MAX_FILES_PER_CHUNK, totalFiles);
@@ -92,17 +95,30 @@ export const classify = async (
     try {
       const parsed = JSON.parse(content) as { features: IFeatureNode[] };
       allFeatures.push(...parsed.features);
-    } catch {
-      // Skip unparseable chunks
+    } catch (err) {
+      const chunkIndex = Math.floor(i / MAX_FILES_PER_CHUNK);
+      const message = err instanceof Error ? err.message : 'Unknown parse error';
+      errors.push({ chunkIndex, error: message });
+      console.error(
+        `[classify] Failed to parse LLM response for chunk ${chunkIndex} (files ${i}-${end}): ${message}`,
+      );
     }
   }
 
-  // If multiple chunks, merge duplicate features
+  if (allFeatures.length === 0 && errors.length > 0) {
+    throw new AnalysisError(
+      `Classification failed: all ${errors.length} chunk(s) returned unparseable responses`,
+      'CLASSIFICATION_FAILED',
+      500,
+      { errors },
+    );
+  }
+
   const merged = mergeFeatures(allFeatures);
 
   return {
     repoId: repoId ?? 'unknown',
-    commitSha: '',
+    commitSha: opts?.commitSha ?? '',
     features: merged.slice(0, opts?.maxFeatures ?? MAX_TOP_LEVEL_FEATURES),
     generatedAt: new Date().toISOString(),
   };

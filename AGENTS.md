@@ -5,7 +5,7 @@
 | Layer | Technology |
 |-------|-----------|
 | **Monorepo** | Turborepo + pnpm |
-| **Web App** | Next.js 15 (App Router) |
+| **Web App** | Next.js 16 (App Router) |
 | **Styling** | Tailwind CSS + shadcn/ui |
 | **Database** | Neon PostgreSQL + pgvector |
 | **ORM** | Drizzle ORM + Drizzle Kit |
