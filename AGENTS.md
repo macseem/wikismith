@@ -5,7 +5,7 @@
 | Layer | Technology |
 |-------|-----------|
 | **Monorepo** | Turborepo + pnpm |
-| **Web App** | Next.js 15 (App Router) |
+| **Web App** | Next.js 16 (App Router) |
 | **Styling** | Tailwind CSS + shadcn/ui |
 | **Database** | Neon PostgreSQL + pgvector |
 | **ORM** | Drizzle ORM + Drizzle Kit |
@@ -19,17 +19,23 @@
 ```
 wikismith/
 ├── apps/
-│   └── web/                    # Next.js 15 app (frontend + API routes)
+│   └── web/                    # Next.js 16 app (frontend + API routes)
 ├── packages/
-│   ├── analyzer/               # Repository analysis engine
+│   ├── analyzer/               # Repository ingestion + analysis engine
 │   ├── generator/              # Wiki content generation (AI)
-│   ├── db/                     # Drizzle schema, migrations, client
-│   └── shared/                 # Shared types, utils, constants
+│   ├── db/                     # Drizzle schema, migrations, client (Neon)
+│   ├── shared/                 # Shared types, utils, constants
+│   ├── eslint-config/          # Shared ESLint flat config
+│   └── tsconfig/               # Shared TypeScript configs
+├── terraform/                  # Cloudflare DNS (wikismith.dudkin-garage.com)
+├── .github/workflows/          # CI (GitHub Actions)
 ├── features/                   # Feature PRDs
 ├── docs/
-│   ├── prd/                    # Product requirement documents
 │   └── architecture/           # Architecture decision records
-├── .cursor/rules/              # Cursor agent rules
+├── skills/                     # Shared skills (Cursor + OpenCode)
+├── .cursor/rules/              # Symlinks to skills/ (Cursor)
+├── .agents/skills/             # Symlinks to skills/ (OpenCode)
+├── vercel.json                 # Vercel deployment config
 ├── turbo.json
 └── package.json
 ```
@@ -106,7 +112,18 @@ pnpm test --filter @wikismith/analyzer
 
 ## 4. ClickUp — Task Tracking
 
-All implementation tasks are tracked in ClickUp. **Every agent must use ClickUp MCP tools to check and update task status.**
+All implementation tasks are tracked in ClickUp. **Every agent must use ClickUp MCP tools to check and update task status before and after work.**
+
+### Available Statuses
+
+The ClickUp space uses two statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `to do` | Not started — available for pickup |
+| `complete` | Done — acceptance criteria met |
+
+> **No "in progress" status exists.** When starting a task, add a comment via `clickup_create_task_comment` stating you are working on it. Set `complete` when done.
 
 ### Workspace Structure
 
@@ -118,46 +135,60 @@ WikiSmith (folder)
 └── Phase 3 — Advanced          # Embeddings/RAG, Q&A, Versioning/Webhooks
 ```
 
+### Remaining Tickets (pick from here)
+
+| Task ID | Task Name | Phase | Status | Dependencies |
+|---------|-----------|-------|--------|-------------|
+| `86c8ez71x` | CI/CD Pipeline & Vercel Deployment Baseline | 0 | `to do` | Scaffold ✅ |
+| `86c8ez7tz` | Authentication & Authorization (WorkOS + GitHub OAuth) | 2 | `to do` | DB Schema ✅ |
+| `86c8ez7xk` | Repository Management Dashboard | 2 | `to do` | Auth |
+| `86c8ez82a` | Embeddings Pipeline & RAG Infrastructure | 3 | `to do` | Generation ✅, DB ✅ |
+| `86c8ez851` | Q&A System (RAG + Streaming) | 3 | `to do` | Embeddings, Auth |
+| `86c8ez87w` | Wiki Versioning & Auto-Update (Webhooks) | 3 | `to do` | Generation ✅, Auth |
+
+Tasks with all dependencies marked ✅ are **ready for pickup now**.
+
 ### Agent Workflow with ClickUp
 
 **Before starting any implementation work:**
 
-1. **Check the board** — use `clickup_search` with `keywords: "WikiSmith"` and `filters.task_statuses: ["active"]` to see what's in progress
-2. **Pick a task** — choose a task that is `to do` and whose dependencies are `complete`
-3. **Mark in progress** — use `clickup_update_task` to set `status: "in progress"` before you start
+1. **Check the board** — use `clickup_search` with `keywords` for the task name to see current status
+2. **Pick a task** — choose a task from the table above that is `to do` and whose dependencies are all `complete`
+3. **Comment start** — use `clickup_create_task_comment` to note you are starting work (e.g., "🚧 Starting implementation on branch feat/auth")
 4. **Reference the PRD** — each task description links to a `features/*.md` file; read it first
-5. **Update on completion** — set `status: "complete"` when acceptance criteria are met
+5. **Mark complete** — use `clickup_update_task` with `status: "complete"` when acceptance criteria are met
 6. **Comment blockers** — use `clickup_create_task_comment` if blocked or if you have questions
 
 ### Task Dependencies (Execution Order)
 
 ```
-Phase 0 (do first, all in parallel):
-  ├── Monorepo Scaffold
-  ├── Database Schema (needs Scaffold)
-  └── CI/CD Pipeline (needs Scaffold)
+Phase 0 — Foundation (✅ mostly complete):
+  ├── Monorepo Scaffold              ✅ complete
+  ├── Database Schema & Migrations   ✅ complete
+  └── CI/CD Pipeline & Vercel        ⬜ to do (Vercel config done, needs deploy)
 
-Phase 1 + Phase 2 (after Phase 0, these run in parallel):
-  Phase 1:
-    ├── Repository Ingestion (needs Scaffold + DB)
-    ├── Wiki UI skeleton (needs Scaffold — no data dependency)
-    ├── Codebase Analysis (needs Ingestion)
-    ├── Feature Classification (needs Analysis)
-    └── Wiki Content Generation (needs Classification + DB)
-  Phase 2:
-    ├── Authentication (needs DB)
-    └── Repo Dashboard (needs Auth + Generation)
+Phase 1 — Core Pipeline (✅ complete):
+  ├── Repository Ingestion           ✅ complete
+  ├── Codebase Analysis              ✅ complete
+  ├── Feature Classification         ✅ complete
+  ├── Wiki Content Generation        ✅ complete
+  └── Wiki UI & Navigation           ✅ complete
 
-Phase 3 (after Phase 1 + Phase 2):
-  ├── Embeddings Pipeline (needs Generation + DB)
-  ├── Q&A System (needs Embeddings + Auth)
-  └── Wiki Versioning + Webhooks (needs Generation + Auth)
+Phase 2 — Auth & User (⬜ ready to start):
+  ├── Authentication (WorkOS)        ⬜ to do — READY (deps: DB ✅)
+  └── Repo Dashboard                 ⬜ to do (deps: Auth)
+
+Phase 3 — Advanced (⬜ partially ready):
+  ├── Embeddings Pipeline & RAG      ⬜ to do — READY (deps: Generation ✅, DB ✅)
+  ├── Q&A System                     ⬜ to do (deps: Embeddings, Auth)
+  └── Wiki Versioning + Webhooks     ⬜ to do (deps: Generation ✅, Auth)
 ```
 
 ### Parallelization Rules
 
 - Multiple agents CAN work on different tasks simultaneously if dependencies allow
 - Never work on a task whose dependencies aren't `complete`
+- Tasks marked **READY** above can be started immediately
 - If two agents need to modify the same package, coordinate via ClickUp comments
 - When in doubt about conflicts, check `git status` and the ClickUp board
 
@@ -186,6 +217,15 @@ Skills are defined in `skills/` and symlinked to `.cursor/rules/` (Cursor) and `
 - All commits use conventional commit format
 - PRs use the template at `.github/pull_request_template.md`
 - Branch naming: `feat/`, `fix/`, `chore/`, `docs/` prefixes
+
+## 8. CI/CD Notes
+
+- CI runs on GitHub Actions with `ubuntu-latest` (see `.github/workflows/ci.yml`)
+- **Blacksmith migration**: once the repo moves to a GitHub **organization** (not personal), migrate CI to [Blacksmith](https://blacksmith.sh/) runners for faster builds:
+  - Change `runs-on: ubuntu-latest` → `runs-on: blacksmith-2vcpu-ubuntu-2404`
+  - Change `actions/setup-node@v4` → `useblacksmith/setup-node@v5`
+  - Blacksmith does not support personal repositories — org-level only
+- Deployment target: Vercel with custom domain `wikismith.dudkin-garage.com` (Cloudflare DNS via Terraform in `terraform/`)
 
 ---
 
