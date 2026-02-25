@@ -61,7 +61,7 @@ export const deleteWiki = (owner: string, repo: string, workosUserId?: string): 
 
   if (workosUserId) {
     const wiki = getWiki(owner, repo);
-    if (wiki?.generatedByWorkosId && wiki.generatedByWorkosId !== workosUserId) {
+    if (!wiki?.generatedByWorkosId || wiki.generatedByWorkosId !== workosUserId) {
       return false;
     }
   }

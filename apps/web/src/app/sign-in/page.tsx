@@ -87,15 +87,9 @@ const SignInPage = async ({ searchParams }: SignInPageProps) => {
           </p>
         )}
 
-        {!blocksReauthLoop || !session ? (
-          <Button asChild size="lg" className="w-full">
-            <Link href={signInUrl}>Continue</Link>
-          </Button>
-        ) : (
-          <Button asChild size="lg" className="w-full" variant="outline">
-            <Link href="/dashboard">Back to dashboard</Link>
-          </Button>
-        )}
+        <Button asChild size="lg" className="w-full">
+          <Link href={signInUrl}>Continue</Link>
+        </Button>
 
         <p className="text-xs text-zinc-500 text-center">
           By continuing, you authorize WikiSmith to access repositories according to your configured

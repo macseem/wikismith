@@ -60,6 +60,13 @@ export const PATCH = async (
     return NextResponse.json({ error: 'Invalid JSON body', code: 'INVALID_BODY' }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json(
+      { error: 'Invalid settings body', code: 'INVALID_BODY' },
+      { status: 400 },
+    );
+  }
+
   const hasTrackedBranch = Object.prototype.hasOwnProperty.call(body, 'trackedBranch');
   const hasAutoUpdate = Object.prototype.hasOwnProperty.call(body, 'autoUpdate');
 

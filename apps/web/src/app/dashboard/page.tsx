@@ -33,16 +33,16 @@ const formatRelativeDate = (value: string): string => {
   const day = 24 * hour;
 
   if (abs < hour) {
-    const minutes = Math.max(1, Math.round(abs / minute));
+    const minutes = Math.max(1, Math.floor(abs / minute));
     return delta >= 0 ? `in ${minutes}m` : `${minutes}m ago`;
   }
 
   if (abs < day) {
-    const hours = Math.round(abs / hour);
+    const hours = Math.max(1, Math.floor(abs / hour));
     return delta >= 0 ? `in ${hours}h` : `${hours}h ago`;
   }
 
-  const days = Math.round(abs / day);
+  const days = Math.max(1, Math.floor(abs / day));
   return delta >= 0 ? `in ${days}d` : `${days}d ago`;
 };
 
@@ -400,7 +400,11 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
                     <span>•</span>
                     <span>{repo.isPrivate ? 'Private' : 'Public'}</span>
                     <span>•</span>
-                    <span>Updated {formatRelativeDate(repo.lastPushedAt)}</span>
+                    <span>
+                      {repo.lastPushedAt
+                        ? `Updated ${formatRelativeDate(repo.lastPushedAt)}`
+                        : 'Never pushed'}
+                    </span>
                   </div>
                 </div>
 

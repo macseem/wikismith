@@ -32,8 +32,20 @@ export const DELETE = async (
     return NextResponse.json({ ok: true, removedFromCache: result.removedFromCache });
   } catch (error) {
     if (error instanceof AppError) {
+      const needsReconnect =
+        error.code === 'MISSING_GITHUB_SCOPE' ||
+        error.code === 'MISSING_GITHUB_TOKEN' ||
+        error.code === 'GITHUB_SSO_AUTH_REQUIRED' ||
+        error.code === 'UNAUTHENTICATED';
+
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        {
+          error: error.message,
+          code: error.code,
+          reauthPath: needsReconnect
+            ? '/sign-in?redirect=%2Fdashboard&reauth=github_scope'
+            : undefined,
+        },
         { status: error.statusCode },
       );
     }

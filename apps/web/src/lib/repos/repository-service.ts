@@ -23,7 +23,7 @@ export interface RepositoryDashboardItem {
   defaultBranch: string;
   trackedBranch: string | null;
   autoUpdate: boolean;
-  lastPushedAt: string;
+  lastPushedAt: string | null;
   wikiStatus: WikiStatus;
 }
 
@@ -224,7 +224,28 @@ const syncRepositoriesForUser = async (
   const { repositories } = await loadDb();
   const fullNames = repos.map((repo) => repo.fullName);
 
-  const existingRows = await db.query.repositories.findMany({
+  await db
+    .insert(repositories)
+    .values(
+      repos.map((repo) => ({
+        userId,
+        owner: repo.owner,
+        name: repo.name,
+        fullName: repo.fullName,
+        description: repo.description,
+        isPrivate: repo.isPrivate,
+        defaultBranch: repo.defaultBranch,
+        trackedBranch: repo.defaultBranch,
+        autoUpdate: false,
+        language: repo.language,
+        updatedAt: new Date(),
+      })),
+    )
+    .onConflictDoNothing({
+      target: [repositories.userId, repositories.fullName],
+    });
+
+  const syncedRows = await db.query.repositories.findMany({
     where: and(eq(repositories.userId, userId), inArray(repositories.fullName, fullNames)),
     columns: {
       id: true,
@@ -233,40 +254,6 @@ const syncRepositoriesForUser = async (
       autoUpdate: true,
     },
   });
-
-  const existingNames = new Set(existingRows.map((repo) => repo.fullName));
-  const missingRows = repos
-    .filter((repo) => !existingNames.has(repo.fullName))
-    .map((repo) => ({
-      userId,
-      owner: repo.owner,
-      name: repo.name,
-      fullName: repo.fullName,
-      description: repo.description,
-      isPrivate: repo.isPrivate,
-      defaultBranch: repo.defaultBranch,
-      trackedBranch: repo.defaultBranch,
-      autoUpdate: false,
-      language: repo.language,
-      updatedAt: new Date(),
-    }));
-
-  if (missingRows.length > 0) {
-    await db.insert(repositories).values(missingRows);
-  }
-
-  const syncedRows =
-    missingRows.length > 0
-      ? await db.query.repositories.findMany({
-          where: and(eq(repositories.userId, userId), inArray(repositories.fullName, fullNames)),
-          columns: {
-            id: true,
-            fullName: true,
-            trackedBranch: true,
-            autoUpdate: true,
-          },
-        })
-      : existingRows;
 
   return new Map(
     syncedRows.map((repo) => [
@@ -313,21 +300,26 @@ export const getRepositoryDashboardData = async ({
   const settingsByFullName = await syncRepositoriesForUser(db, user.id, repos);
   const repositoryIds = Array.from(settingsByFullName.values()).map((repo) => repo.id);
 
-  const latestVersions =
-    repositoryIds.length > 0
-      ? await db.query.wikiVersions.findMany({
-          where: inArray(wikiVersions.repositoryId, repositoryIds),
+  const latestVersionByRepository = new Map<string, { status: string }>();
+  if (repositoryIds.length > 0) {
+    const latestVersions = await Promise.all(
+      repositoryIds.map(async (repositoryId) =>
+        db.query.wikiVersions.findFirst({
+          where: eq(wikiVersions.repositoryId, repositoryId),
           orderBy: [desc(wikiVersions.createdAt)],
           columns: {
             repositoryId: true,
             status: true,
           },
-        })
-      : [];
+        }),
+      ),
+    );
 
-  const latestVersionByRepository = new Map<string, { status: string }>();
-  for (const version of latestVersions) {
-    if (!latestVersionByRepository.has(version.repositoryId)) {
+    for (const version of latestVersions) {
+      if (!version) {
+        continue;
+      }
+
       latestVersionByRepository.set(version.repositoryId, {
         status: version.status,
       });
@@ -473,31 +465,33 @@ export const updateRepositorySettings = async (
     updatedAt: new Date(),
     ...(normalizedTrackedBranch !== undefined ? { trackedBranch: normalizedTrackedBranch } : {}),
     ...(autoUpdate !== undefined ? { autoUpdate } : {}),
-  };
-
-  const updated = await db
-    .update(repositories)
-    .set(updateValues)
-    .where(and(eq(repositories.userId, user.id), eq(repositories.fullName, fullName)))
-    .returning({ id: repositories.id });
-
-  if (updated.length > 0) {
-    return;
-  }
-
-  await db.insert(repositories).values({
-    userId: user.id,
     owner,
     name: repo,
-    fullName,
     description: githubRepo.description,
     isPrivate: githubRepo.isPrivate,
     defaultBranch: githubRepo.defaultBranch,
-    trackedBranch: normalizedTrackedBranch ?? githubRepo.defaultBranch,
-    autoUpdate: autoUpdate ?? false,
     language: githubRepo.language,
-    updatedAt: new Date(),
-  });
+  };
+
+  await db
+    .insert(repositories)
+    .values({
+      userId: user.id,
+      owner,
+      name: repo,
+      fullName,
+      description: githubRepo.description,
+      isPrivate: githubRepo.isPrivate,
+      defaultBranch: githubRepo.defaultBranch,
+      trackedBranch: normalizedTrackedBranch ?? githubRepo.defaultBranch,
+      autoUpdate: autoUpdate ?? false,
+      language: githubRepo.language,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [repositories.userId, repositories.fullName],
+      set: updateValues,
+    });
 };
 
 export const deleteRepositoryWiki = async (

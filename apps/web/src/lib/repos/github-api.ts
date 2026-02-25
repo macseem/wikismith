@@ -10,8 +10,32 @@ export interface GitHubRepositorySummary {
   isPrivate: boolean;
   defaultBranch: string;
   language: string | null;
-  pushedAt: string;
+  pushedAt: string | null;
 }
+
+interface GitHubRepositoryPayload {
+  name: string;
+  full_name: string;
+  description: string | null;
+  private: boolean;
+  default_branch: string;
+  language: string | null;
+  pushed_at: string | null;
+  owner: {
+    login: string;
+  };
+}
+
+const toRepositorySummary = (repo: GitHubRepositoryPayload): GitHubRepositorySummary => ({
+  owner: repo.owner.login,
+  name: repo.name,
+  fullName: repo.full_name,
+  description: repo.description,
+  isPrivate: repo.private,
+  defaultBranch: repo.default_branch,
+  language: repo.language,
+  pushedAt: repo.pushed_at,
+});
 
 const getHeaders = (accessToken: string): HeadersInit => ({
   Accept: 'application/vnd.github+json',
@@ -156,30 +180,10 @@ export const fetchGitHubReposPage = async (
     await throwGitHubError(response, 'fetch_user_repos_page');
   }
 
-  const payload = (await response.json()) as Array<{
-    name: string;
-    full_name: string;
-    description: string | null;
-    private: boolean;
-    default_branch: string;
-    language: string | null;
-    pushed_at: string;
-    owner: {
-      login: string;
-    };
-  }>;
+  const payload = (await response.json()) as GitHubRepositoryPayload[];
 
   return {
-    repositories: payload.map((repo) => ({
-      owner: repo.owner.login,
-      name: repo.name,
-      fullName: repo.full_name,
-      description: repo.description,
-      isPrivate: repo.private,
-      defaultBranch: repo.default_branch,
-      language: repo.language,
-      pushedAt: repo.pushed_at,
-    })),
+    repositories: payload.map(toRepositorySummary),
     hasNextPage: hasNextPage(response.headers.get('link')),
   };
 };
@@ -237,25 +241,7 @@ export const fetchGitHubRepository = async (
     await throwGitHubError(response, 'fetch_repository');
   }
 
-  const payload = (await response.json()) as {
-    name: string;
-    full_name: string;
-    description: string | null;
-    private: boolean;
-    default_branch: string;
-    language: string | null;
-    pushed_at: string;
-    owner: { login: string };
-  };
+  const payload = (await response.json()) as GitHubRepositoryPayload;
 
-  return {
-    owner: payload.owner.login,
-    name: payload.name,
-    fullName: payload.full_name,
-    description: payload.description,
-    isPrivate: payload.private,
-    defaultBranch: payload.default_branch,
-    language: payload.language,
-    pushedAt: payload.pushed_at,
-  };
+  return toRepositorySummary(payload);
 };
