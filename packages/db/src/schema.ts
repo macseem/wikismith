@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   timestamp,
+  type AnyPgColumn,
   boolean,
   integer,
   jsonb,
@@ -23,9 +24,9 @@ export const users = pgTable('users', {
   githubRefreshTokenEncrypted: text('github_refresh_token_encrypted'),
   githubRefreshTokenIv: text('github_refresh_token_iv'),
   githubRefreshTokenTag: text('github_refresh_token_tag'),
-  githubTokenExpiresAt: timestamp('github_token_expires_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  githubTokenExpiresAt: timestamp('github_token_expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const repositories = pgTable('repositories', {
@@ -44,8 +45,8 @@ export const repositories = pgTable('repositories', {
   webhookId: text('webhook_id'),
   webhookSecret: text('webhook_secret'),
   language: text('language'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const wikiVersions = pgTable('wiki_versions', {
@@ -61,8 +62,8 @@ export const wikiVersions = pgTable('wiki_versions', {
   errorMessage: text('error_message'),
   featureCount: integer('feature_count').default(0).notNull(),
   pageCount: integer('page_count').default(0).notNull(),
-  generatedAt: timestamp('generated_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  generatedAt: timestamp('generated_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const wikiPages = pgTable('wiki_pages', {
@@ -86,9 +87,11 @@ export const wikiPages = pgTable('wiki_pages', {
     >()
     .default([])
     .notNull(),
-  parentPageId: uuid('parent_page_id'),
+  parentPageId: uuid('parent_page_id').references((): AnyPgColumn => wikiPages.id, {
+    onDelete: 'set null',
+  }),
   sortOrder: integer('sort_order').default(0).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const generationJobs = pgTable('generation_jobs', {
@@ -102,9 +105,9 @@ export const generationJobs = pgTable('generation_jobs', {
   currentStep: text('current_step'),
   progress: integer('progress').default(0).notNull(),
   errorMessage: text('error_message'),
-  startedAt: timestamp('started_at'),
-  completedAt: timestamp('completed_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const generationRateLimits = pgTable(
@@ -116,8 +119,8 @@ export const generationRateLimits = pgTable(
       .notNull(),
     bucketDate: date('bucket_date').notNull(),
     count: integer('count').default(0).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userBucketUnique: uniqueIndex('generation_rate_limits_user_bucket_unique').on(

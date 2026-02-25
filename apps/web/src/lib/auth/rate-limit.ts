@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { RateLimitError } from '@wikismith/shared';
 import { getStoredUserByWorkOSId } from './user-store';
 
 type DbModule = typeof import('@wikismith/db');
@@ -7,7 +8,14 @@ const loadDb = async (): Promise<DbModule> => {
   try {
     return await import('@wikismith/db');
   } catch (error) {
-    throw new Error('Failed to load database module for rate limiting.', { cause: error });
+    throw new RateLimitError(
+      'Failed to load database module for rate limiting.',
+      'RATE_LIMIT_DB_LOAD',
+      500,
+      {
+        cause: error,
+      },
+    );
   }
 };
 
@@ -56,11 +64,22 @@ export const incrementDailyGenerationCount = async (
   try {
     user = await getStoredUserByWorkOSId(workosUserId);
   } catch (error) {
-    throw new Error('Failed to load user for rate limiting.', { cause: error });
+    throw new RateLimitError(
+      'Failed to load user for rate limiting.',
+      'RATE_LIMIT_USER_LOAD',
+      500,
+      {
+        cause: error,
+      },
+    );
   }
 
   if (!user) {
-    throw new Error('Authenticated user record is missing.');
+    throw new RateLimitError(
+      'Authenticated user record is missing.',
+      'RATE_LIMIT_USER_MISSING',
+      500,
+    );
   }
 
   const dailyLimit = getDailyGenerationLimit();

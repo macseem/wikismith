@@ -109,7 +109,19 @@ export const POST = async (request: Request) => {
     );
   }
 
-  const githubAccessToken = await getGitHubAccessTokenByWorkOSId(session.user.workosId);
+  let githubAccessToken: string | null;
+  try {
+    githubAccessToken = await getGitHubAccessTokenByWorkOSId(session.user.workosId);
+  } catch (error) {
+    console.error('[Generate] Failed to load GitHub access token', error);
+    return NextResponse.json(
+      {
+        error: 'Unable to load your GitHub authorization right now. Please try again.',
+        code: 'GITHUB_TOKEN_LOOKUP_FAILED',
+      },
+      { status: 500 },
+    );
+  }
 
   const accept = request.headers.get('accept') ?? '';
   const wantsSSE = accept.split(',').some((t) => t.trim().startsWith('text/event-stream'));

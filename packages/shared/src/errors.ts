@@ -30,3 +30,10 @@ export class GenerationError extends AppError {
     this.name = 'GenerationError';
   }
 }
+
+export class RateLimitError extends AppError {
+  constructor(message: string, code: string, statusCode = 429, details?: Record<string, unknown>) {
+    super(message, code, statusCode, details);
+    this.name = 'RateLimitError';
+  }
+}

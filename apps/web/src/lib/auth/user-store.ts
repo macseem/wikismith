@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { db as dbClient } from '@wikismith/db';
 import { decryptSecret, encryptSecret } from './token-crypto';
 
@@ -32,6 +32,16 @@ interface GitHubTokenRefreshResponse {
   refresh_token?: string;
   expires_in?: number;
   error?: string;
+}
+
+interface StoredGitHubTokenRecord {
+  githubTokenEncrypted: string | null;
+  githubTokenIv: string | null;
+  githubTokenTag: string | null;
+  githubRefreshTokenEncrypted: string | null;
+  githubRefreshTokenIv: string | null;
+  githubRefreshTokenTag: string | null;
+  githubTokenExpiresAt: Date | null;
 }
 
 const getDisplayName = (user: WorkOSUserPayload): string | null => {
@@ -68,7 +78,13 @@ const refreshGitHubAccessToken = async (
     return null;
   }
 
-  const payload = (await response.json()) as GitHubTokenRefreshResponse;
+  let payload: GitHubTokenRefreshResponse;
+  try {
+    payload = (await response.json()) as GitHubTokenRefreshResponse;
+  } catch {
+    return null;
+  }
+
   if (!payload.access_token || payload.error) {
     return null;
   }
@@ -81,6 +97,50 @@ const refreshGitHubAccessToken = async (
         ? new Date(Date.now() + payload.expires_in * 1000)
         : null,
   };
+};
+
+const decryptAccessToken = (record: StoredGitHubTokenRecord): string | null => {
+  if (!record.githubTokenEncrypted || !record.githubTokenIv || !record.githubTokenTag) {
+    return null;
+  }
+
+  return decryptSecret({
+    encrypted: record.githubTokenEncrypted,
+    iv: record.githubTokenIv,
+    tag: record.githubTokenTag,
+  });
+};
+
+const isTokenExpired = (expiresAt: Date | null): boolean =>
+  expiresAt ? expiresAt.getTime() <= Date.now() : false;
+
+const getLatestValidAccessToken = async (
+  db: DbModule['db'],
+  workosId: string,
+): Promise<string | null> => {
+  const latest = await db.query.users.findFirst({
+    where: (table, { eq }) => eq(table.workosId, workosId),
+    columns: {
+      githubTokenEncrypted: true,
+      githubTokenIv: true,
+      githubTokenTag: true,
+      githubTokenExpiresAt: true,
+    },
+  });
+
+  if (!latest || isTokenExpired(latest.githubTokenExpiresAt)) {
+    return null;
+  }
+
+  return decryptAccessToken({
+    githubTokenEncrypted: latest.githubTokenEncrypted,
+    githubTokenIv: latest.githubTokenIv,
+    githubTokenTag: latest.githubTokenTag,
+    githubRefreshTokenEncrypted: null,
+    githubRefreshTokenIv: null,
+    githubRefreshTokenTag: null,
+    githubTokenExpiresAt: latest.githubTokenExpiresAt,
+  });
 };
 
 export const syncAuthenticatedUser = async (
@@ -149,7 +209,7 @@ export const getStoredUserByWorkOSId = async (workosId: string): Promise<StoredU
 export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<string | null> => {
   const { db, users } = await loadDb();
 
-  const record = await db.query.users.findFirst({
+  const record: StoredGitHubTokenRecord | undefined = await db.query.users.findFirst({
     where: (table, { eq }) => eq(table.workosId, workosId),
     columns: {
       githubTokenEncrypted: true,
@@ -166,7 +226,7 @@ export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<
     return null;
   }
 
-  if (record.githubTokenExpiresAt && record.githubTokenExpiresAt.getTime() <= Date.now()) {
+  if (isTokenExpired(record.githubTokenExpiresAt)) {
     if (
       !record.githubRefreshTokenEncrypted ||
       !record.githubRefreshTokenIv ||
@@ -183,13 +243,13 @@ export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<
 
     const refreshed = await refreshGitHubAccessToken(refreshToken);
     if (!refreshed) {
-      return null;
+      return getLatestValidAccessToken(db, workosId);
     }
 
     const encryptedAccessToken = encryptSecret(refreshed.accessToken);
     const encryptedRefreshToken = encryptSecret(refreshed.refreshToken);
 
-    await db
+    const updated = await db
       .update(users)
       .set({
         githubTokenEncrypted: encryptedAccessToken.encrypted,
@@ -201,16 +261,24 @@ export const getGitHubAccessTokenByWorkOSId = async (workosId: string): Promise<
         githubTokenExpiresAt: refreshed.expiresAt,
         updatedAt: new Date(),
       })
-      .where(eq(users.workosId, workosId));
+      .where(
+        and(
+          eq(users.workosId, workosId),
+          eq(users.githubRefreshTokenEncrypted, record.githubRefreshTokenEncrypted),
+          eq(users.githubRefreshTokenIv, record.githubRefreshTokenIv),
+          eq(users.githubRefreshTokenTag, record.githubRefreshTokenTag),
+        ),
+      )
+      .returning({ id: users.id });
+
+    if (updated.length === 0) {
+      return getLatestValidAccessToken(db, workosId);
+    }
 
     return refreshed.accessToken;
   }
 
-  return decryptSecret({
-    encrypted: record.githubTokenEncrypted,
-    iv: record.githubTokenIv,
-    tag: record.githubTokenTag,
-  });
+  return decryptAccessToken(record);
 };
 
 export const deleteUserByWorkOSId = async (workosId: string): Promise<boolean> => {

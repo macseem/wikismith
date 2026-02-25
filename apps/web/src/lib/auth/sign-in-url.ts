@@ -7,7 +7,11 @@ interface GetGitHubSignInUrlOptions {
 }
 
 const toUrlSafeBase64 = (value: string): string =>
-  Buffer.from(value, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+  Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 
 const buildState = (returnPathname?: string, state?: string): string | undefined => {
   const internalState = returnPathname

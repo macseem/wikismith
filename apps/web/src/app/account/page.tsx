@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth/session';
 import { deleteUserByWorkOSId } from '@/lib/auth/user-store';
 
 interface AccountPageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }
 
 const AccountPage = async ({ searchParams }: AccountPageProps) => {
@@ -40,6 +40,14 @@ const AccountPage = async ({ searchParams }: AccountPageProps) => {
             </p>
           )}
 
+          {params.error === 'delete_failed' && (
+            <p className="text-sm text-red-300 border border-red-400/40 bg-red-500/10 rounded-md px-3 py-2">
+              {params.message === 'not_found'
+                ? 'Your session is no longer valid. Please sign in again.'
+                : 'Account deletion failed. Please try again.'}
+            </p>
+          )}
+
           <form
             className="space-y-3"
             action={async (formData) => {
@@ -50,8 +58,21 @@ const AccountPage = async ({ searchParams }: AccountPageProps) => {
                 redirect('/account?error=invalid_confirmation');
               }
 
-              await deleteUserByWorkOSId(session.user.workosId);
-              await signOut({ returnTo: '/?accountDeleted=1' });
+              const currentSession = await getSession();
+              if (!currentSession) {
+                redirect('/account?error=delete_failed&message=not_found');
+              }
+
+              try {
+                const deleted = await deleteUserByWorkOSId(currentSession.user.workosId);
+                if (!deleted) {
+                  redirect('/account?error=delete_failed&message=not_found');
+                }
+
+                await signOut({ returnTo: '/?accountDeleted=1' });
+              } catch {
+                redirect('/account?error=delete_failed');
+              }
             }}
           >
             <label htmlFor="confirmation" className="block text-sm text-red-200">

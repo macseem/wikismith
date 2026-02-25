@@ -5,9 +5,9 @@ CREATE TABLE "generation_jobs" (
 	"current_step" text,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"error_message" text,
-	"started_at" timestamp,
-	"completed_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"started_at" timestamp with time zone,
+	"completed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "generation_rate_limits" (
@@ -15,8 +15,8 @@ CREATE TABLE "generation_rate_limits" (
 	"user_id" uuid NOT NULL,
 	"bucket_date" date NOT NULL,
 	"count" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "repositories" (
@@ -33,8 +33,8 @@ CREATE TABLE "repositories" (
 	"webhook_id" text,
 	"webhook_secret" text,
 	"language" text,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
@@ -49,9 +49,9 @@ CREATE TABLE "users" (
 	"github_refresh_token_encrypted" text,
 	"github_refresh_token_iv" text,
 	"github_refresh_token_tag" text,
-	"github_token_expires_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"github_token_expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_workos_id_unique" UNIQUE("workos_id")
 );
 --> statement-breakpoint
@@ -65,7 +65,7 @@ CREATE TABLE "wiki_pages" (
 	"citations" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"parent_page_id" uuid,
 	"sort_order" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "wiki_versions" (
@@ -77,13 +77,14 @@ CREATE TABLE "wiki_versions" (
 	"error_message" text,
 	"feature_count" integer DEFAULT 0 NOT NULL,
 	"page_count" integer DEFAULT 0 NOT NULL,
-	"generated_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"generated_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "generation_jobs" ADD CONSTRAINT "generation_jobs_wiki_version_id_wiki_versions_id_fk" FOREIGN KEY ("wiki_version_id") REFERENCES "public"."wiki_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "generation_rate_limits" ADD CONSTRAINT "generation_rate_limits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "repositories" ADD CONSTRAINT "repositories_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "wiki_pages" ADD CONSTRAINT "wiki_pages_wiki_version_id_wiki_versions_id_fk" FOREIGN KEY ("wiki_version_id") REFERENCES "public"."wiki_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "wiki_pages" ADD CONSTRAINT "wiki_pages_parent_page_id_wiki_pages_id_fk" FOREIGN KEY ("parent_page_id") REFERENCES "public"."wiki_pages"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "wiki_versions" ADD CONSTRAINT "wiki_versions_repository_id_repositories_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repositories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "generation_rate_limits_user_bucket_unique" ON "generation_rate_limits" USING btree ("user_id","bucket_date");
