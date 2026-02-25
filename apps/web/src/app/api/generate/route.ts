@@ -3,6 +3,9 @@ import { parseGitHubUrl, ingest, analyze, classify } from '@wikismith/analyzer';
 import { generateWiki } from '@wikismith/generator';
 import { AppError } from '@wikismith/shared';
 import { saveWiki, hasWiki, getWiki } from '@/lib/wiki-store';
+import { getSession } from '@/lib/auth/session';
+import { getGitHubAccessTokenByWorkOSId, syncAuthenticatedUser } from '@/lib/auth/user-store';
+import { incrementDailyGenerationCount } from '@/lib/auth/rate-limit';
 
 export const maxDuration = 300;
 
@@ -14,12 +17,26 @@ interface GenerateBody {
   force?: boolean;
 }
 
+const reAuthPath = '/sign-in?redirect=%2Fdashboard&reauth=github_scope';
+
 const sendSSE = (controller: ReadableStreamDefaultController, event: string, data: unknown) => {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   controller.enqueue(new TextEncoder().encode(payload));
 };
 
 export const POST = async (request: Request) => {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json(
+      {
+        error: 'Authentication required',
+        code: 'UNAUTHENTICATED',
+        signInPath: '/sign-in?redirect=%2Fdashboard',
+      },
+      { status: 401 },
+    );
+  }
+
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
     return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
@@ -55,11 +72,62 @@ export const POST = async (request: Request) => {
     });
   }
 
+  let rateLimit: Awaited<ReturnType<typeof incrementDailyGenerationCount>>;
+  try {
+    await syncAuthenticatedUser({
+      id: session.user.workosId,
+      email: session.user.email,
+    });
+
+    rateLimit = await incrementDailyGenerationCount(session.user.workosId);
+  } catch (error) {
+    console.error('[Generate] Failed to sync user or enforce rate limit', error);
+    return NextResponse.json(
+      {
+        error: 'Unable to validate your account right now. Please try again.',
+        code: 'ACCOUNT_VALIDATION_FAILED',
+      },
+      { status: 500 },
+    );
+  }
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: `You've reached your daily wiki generation limit (${rateLimit.used}/${rateLimit.limit}). Try again after reset.`,
+        code: 'RATE_LIMITED',
+        used: rateLimit.used,
+        limit: rateLimit.limit,
+        resetAt: rateLimit.resetAt,
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
+
+  let githubAccessToken: string | null;
+  try {
+    githubAccessToken = await getGitHubAccessTokenByWorkOSId(session.user.workosId);
+  } catch (error) {
+    console.error('[Generate] Failed to load GitHub access token', error);
+    return NextResponse.json(
+      {
+        error: 'Unable to load your GitHub authorization right now. Please try again.',
+        code: 'GITHUB_TOKEN_LOOKUP_FAILED',
+      },
+      { status: 500 },
+    );
+  }
+
   const accept = request.headers.get('accept') ?? '';
   const wantsSSE = accept.split(',').some((t) => t.trim().startsWith('text/event-stream'));
 
   if (!wantsSSE) {
-    return runSynchronous(parsed, body);
+    return runSynchronous(parsed, body, githubAccessToken);
   }
 
   const stream = new ReadableStream({
@@ -70,7 +138,10 @@ export const POST = async (request: Request) => {
           message: `Fetching ${parsed.owner}/${parsed.name}...`,
         });
 
-        const ingestion = await ingest(body.url!, { ref: body.ref });
+        const ingestion = await ingest(body.url!, {
+          ref: body.ref,
+          token: githubAccessToken ?? undefined,
+        });
 
         sendSSE(controller, 'progress', {
           stage: 'analyzing',
@@ -140,6 +211,17 @@ export const POST = async (request: Request) => {
         });
       } catch (error) {
         if (error instanceof AppError) {
+          if (error.code === 'ACCESS_DENIED') {
+            sendSSE(controller, 'error', {
+              error:
+                'GitHub access was denied for this repository. Re-authenticate and approve repository scopes.',
+              code: 'MISSING_GITHUB_SCOPE',
+              statusCode: 403,
+              reauthPath: reAuthPath,
+            });
+            return;
+          }
+
           sendSSE(controller, 'error', {
             error: error.message,
             code: error.code,
@@ -171,9 +253,13 @@ export const POST = async (request: Request) => {
 const runSynchronous = async (
   parsed: ReturnType<typeof parseGitHubUrl>,
   body: GenerateBody,
+  githubAccessToken: string | null,
 ) => {
   try {
-    const ingestion = await ingest(body.url!, { ref: body.ref });
+    const ingestion = await ingest(body.url!, {
+      ref: body.ref,
+      token: githubAccessToken ?? undefined,
+    });
     const analysis = analyze(ingestion);
     const featureTree = await classify(analysis, `${parsed.owner}/${parsed.name}`, {
       commitSha: ingestion.commitSha,
@@ -209,6 +295,18 @@ const runSynchronous = async (
     });
   } catch (error) {
     if (error instanceof AppError) {
+      if (error.code === 'ACCESS_DENIED') {
+        return NextResponse.json(
+          {
+            error:
+              'GitHub access was denied for this repository. Re-authenticate and approve repository scopes.',
+            code: 'MISSING_GITHUB_SCOPE',
+            reauthPath: reAuthPath,
+          },
+          { status: 403 },
+        );
+      }
+
       return NextResponse.json(
         { error: error.message, code: error.code },
         { status: error.statusCode },

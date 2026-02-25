@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { WikiSidebar } from '@/components/wiki/sidebar';
 import { WikiPageContent } from '@/components/wiki/page-content';
+import { useSession } from '@/hooks/use-session';
 import type { StoredWiki } from '@/lib/wiki-store';
 import type { IWikiPage } from '@wikismith/shared';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ const WikiPage = () => {
   const [wiki, setWiki] = useState<StoredWiki | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { session, loading: sessionLoading } = useSession();
 
   const owner = params.owner;
   const repo = params.repo;
@@ -86,6 +88,16 @@ const WikiPage = () => {
             {owner}/{repo}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            {!sessionLoading && !session && (
+              <Link href="/sign-in" className="text-xs text-zinc-400 hover:text-zinc-200">
+                Sign in with GitHub
+              </Link>
+            )}
+            {!sessionLoading && session && (
+              <Link href="/dashboard" className="text-xs text-zinc-400 hover:text-zinc-200">
+                Dashboard
+              </Link>
+            )}
             {wiki.analysis.frameworks.map((fw) => (
               <Badge key={fw} variant="secondary" className="text-xs">
                 {fw}
