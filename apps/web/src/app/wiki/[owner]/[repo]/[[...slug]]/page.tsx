@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { WikiSidebar } from '@/components/wiki/sidebar';
 import { WikiPageContent } from '@/components/wiki/page-content';
@@ -53,9 +54,9 @@ const WikiPage = () => {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
           <p className="text-zinc-400 text-lg">{error ?? 'Wiki not found'}</p>
-          <a href="/" className="text-blue-400 hover:underline mt-4 inline-block">
+          <Link href="/" className="text-blue-400 hover:underline mt-4 inline-block">
             Go back home
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -77,9 +78,9 @@ const WikiPage = () => {
       <WikiSidebar pages={wiki.pages} owner={owner} repo={repo} />
       <div className="flex-1 overflow-y-auto">
         <header className="border-b border-zinc-800 px-6 py-3 flex items-center gap-3">
-          <a href="/" className="text-blue-400 hover:underline text-sm font-medium">
+          <Link href="/" className="text-blue-400 hover:underline text-sm font-medium">
             WikiSmith
-          </a>
+          </Link>
           <span className="text-zinc-600">/</span>
           <span className="text-sm text-zinc-400">
             {owner}/{repo}

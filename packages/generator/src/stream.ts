@@ -1,4 +1,4 @@
-import type { IClassifiedFeatureTree, IWikiPage } from '@wikismith/shared';
+import type { IClassifiedFeatureTree } from '@wikismith/shared';
 import OpenAI from 'openai';
 import { buildWikiPagePrompt } from './prompts';
 
