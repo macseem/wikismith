@@ -28,7 +28,7 @@ export interface ExtractionResult {
 const shouldIgnore = (filePath: string): boolean =>
   DEFAULT_IGNORE_PATTERNS.some((pattern) => {
     if (pattern.endsWith('/')) {
-      return filePath.includes(pattern) || filePath.includes(pattern.slice(0, -1) + '/');
+      return filePath.includes(pattern) || filePath.split('/').includes(pattern.slice(0, -1));
     }
     if (pattern.startsWith('*')) {
       return filePath.endsWith(pattern.slice(1));

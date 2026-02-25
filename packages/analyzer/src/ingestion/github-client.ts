@@ -101,6 +101,11 @@ export const resolveCommitSha = async (
 
   if (response.status === 403) {
     handleRateLimit(response);
+    throw new IngestionError(
+      `Access denied for "${owner}/${name}". The repository may be private — authenticate via GitHub to access it.`,
+      'ACCESS_DENIED',
+      403,
+    );
   }
 
   if (!response.ok) {
@@ -128,6 +133,11 @@ export const downloadTarball = async (
 
   if (response.status === 403) {
     handleRateLimit(response);
+    throw new IngestionError(
+      `Access denied for "${owner}/${name}". The repository may be private — authenticate via GitHub to access it.`,
+      'ACCESS_DENIED',
+      403,
+    );
   }
 
   if (!response.ok) {

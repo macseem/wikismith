@@ -16,6 +16,7 @@ export const analyze = (ingestion: IIngestionResult): IAnalysisResult => {
   const entrySet = new Set(entryPoints);
 
   const files: IFileEntry[] = [];
+  const fileCount = Object.keys(ingestion.files).length;
 
   for (const [filePath, content] of Object.entries(ingestion.files)) {
     const ext = extname(filePath).toLowerCase();
@@ -28,7 +29,7 @@ export const analyze = (ingestion: IIngestionResult): IAnalysisResult => {
       isEntryPoint,
       edges: importGraph,
       signatures,
-      fileCount: Object.keys(ingestion.files).length,
+      fileCount,
     });
 
     files.push({

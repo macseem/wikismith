@@ -8,7 +8,7 @@ export interface Signature {
 }
 
 const TS_EXPORT_RE =
-  /^(export\s+(?:default\s+)?)?(?:(function|class|interface|type|enum|const|let|var)\s+)(\w+)/gm;
+  /^(export\s+(?:default\s+)?)?(?:(?:async|abstract|declare)\s+)*(?:(function|class|interface|type|enum|const|let|var)\s+)(\w+)/gm;
 
 const PY_DEF_RE = /^(class|def)\s+(\w+)/gm;
 

@@ -44,6 +44,7 @@ export const BINARY_EXTENSIONS = new Set([
   '.pyc', '.pyo', '.class', '.jar', '.war',
   '.sqlite', '.db', '.sqlite3',
   '.DS_Store',
+  '.lockb',
 ]);
 
 export const README_PATTERNS = [
@@ -64,7 +65,7 @@ export const MANIFEST_FILES = new Set([
   'mix.exs',
   'deno.json',
   'deno.jsonc',
-  'bun.lockb',
+  'bunfig.toml',
 ]);
 
 export const LANGUAGE_MAP: Record<string, string> = {

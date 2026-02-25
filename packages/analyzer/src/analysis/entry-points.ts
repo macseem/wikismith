@@ -42,10 +42,11 @@ export const findPackageEntryPoints = (ingestion: IIngestionResult): string[] =>
         const dir = manifest.path.includes('/')
           ? manifest.path.slice(0, manifest.path.lastIndexOf('/') + 1)
           : '';
-        entries.push(dir + candidate);
+        const normalized = candidate.startsWith('./') ? candidate.slice(2) : candidate;
+        entries.push(dir + normalized);
       }
-    } catch {
-      // skip malformed
+    } catch (err) {
+      console.error(`[entry-points] Failed to parse ${manifest.path}:`, err);
     }
   }
 

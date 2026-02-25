@@ -35,8 +35,14 @@ export const RepoInput = () => {
           return;
         }
 
+        if (!data.owner || !data.repo) {
+          setError('Invalid response from server. Please try again.');
+          return;
+        }
+
         router.push(`/wiki/${data.owner}/${data.repo}`);
-      } catch {
+      } catch (err) {
+        console.error('[RepoInput] Submission failed:', err);
         setError('An unexpected error occurred. Please try again.');
       } finally {
         setLoading(false);

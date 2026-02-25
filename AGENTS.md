@@ -28,7 +28,7 @@ wikismith/
 │   ├── eslint-config/          # Shared ESLint flat config
 │   └── tsconfig/               # Shared TypeScript configs
 ├── terraform/                  # Cloudflare DNS (wikismith.dudkin-garage.com)
-├── .github/workflows/          # CI — Blacksmith runner
+├── .github/workflows/          # CI (GitHub Actions)
 ├── features/                   # Feature PRDs
 ├── docs/
 │   └── architecture/           # Architecture decision records

@@ -6,8 +6,15 @@ import { saveWiki, hasWiki, getWiki } from '@/lib/wiki-store';
 
 export const maxDuration = 300;
 
+const MAX_BODY_SIZE = 1024; // 1 KB — only JSON with a URL + optional ref
+
 export const POST = async (request: Request) => {
   try {
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
+    }
+
     const body = (await request.json()) as { url?: string; ref?: string; force?: boolean };
 
     if (!body.url) {

@@ -16,7 +16,8 @@ export interface StoredWiki {
 
 const store = new Map<string, StoredWiki>();
 
-const key = (owner: string, repo: string) => `${owner}/${repo}`;
+const key = (owner: string, repo: string) =>
+  `${owner.toLowerCase()}/${repo.toLowerCase()}`;
 
 export const saveWiki = (wiki: StoredWiki): void => {
   store.set(key(wiki.owner, wiki.repo), wiki);

@@ -7,7 +7,7 @@ AI-powered wiki generation for code repositories. Paste a GitHub URL, get beauti
 | Layer | Technology |
 |-------|-----------|
 | Monorepo | Turborepo + pnpm |
-| Web App | Next.js 15 (App Router) |
+| Web App | Next.js 16 (App Router) |
 | Styling | Tailwind CSS + shadcn/ui |
 | Database | Neon PostgreSQL + pgvector |
 | ORM | Drizzle ORM + Drizzle Kit |
@@ -30,7 +30,7 @@ wikismith/
 │   ├── eslint-config/          # Shared ESLint flat config
 │   └── tsconfig/               # Shared TypeScript configs
 ├── terraform/                  # Cloudflare DNS (wikismith.dudkin-garage.com)
-├── .github/workflows/          # CI — Blacksmith runner
+├── .github/workflows/          # CI (GitHub Actions)
 ├── features/                   # Feature PRDs
 ├── docs/
 │   └── architecture/           # Architecture Decision Records (ADRs)

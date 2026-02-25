@@ -15,8 +15,9 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
   const pathname = usePathname();
   const basePath = `/wiki/${owner}/${repo}`;
 
+  const overview = pages.find((p) => p.slug === 'overview');
   const topLevel = pages
-    .filter((p) => p.parentPageId === null || p.parentPageId === 'overview')
+    .filter((p) => p.parentPageId === 'overview')
     .sort((a, b) => a.order - b.order);
 
   return (
@@ -28,6 +29,21 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
       </Link>
 
       <ul className="space-y-1">
+        {overview && (
+          <li>
+            <Link
+              href={basePath}
+              className={cn(
+                'block px-3 py-2 rounded-md text-sm transition-colors',
+                pathname === basePath
+                  ? 'bg-zinc-800 text-white font-medium'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50',
+              )}
+            >
+              {overview.title}
+            </Link>
+          </li>
+        )}
         {topLevel.map((page) => {
           const href = page.slug === 'overview' ? basePath : `${basePath}/${page.slug}`;
           const isActive = pathname === href;

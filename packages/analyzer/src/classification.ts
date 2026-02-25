@@ -16,6 +16,7 @@ const buildClassificationPrompt = (
   analysis: IAnalysisResult,
   startIdx: number,
   endIdx: number,
+  maxFeatures: number = MAX_TOP_LEVEL_FEATURES,
 ): string => {
   const fileSlice = analysis.files.slice(startIdx, endIdx);
   const fileList = fileSlice
@@ -47,7 +48,7 @@ Classify these files into user-facing features. Rules:
 2. Each feature needs: name, description, and relevant files with their role.
 3. A file can belong to multiple features.
 4. Support 2 levels: top-level features and optional sub-features.
-5. Return a maximum of ${MAX_TOP_LEVEL_FEATURES} top-level features.
+5. Return a maximum of ${maxFeatures} top-level features.
 6. For CLI tools, use commands as features. For libraries, use public API modules.
 
 Respond with ONLY valid JSON matching this schema:
@@ -80,7 +81,8 @@ export const classify = async (
 
   for (let i = 0; i < totalFiles; i += MAX_FILES_PER_CHUNK) {
     const end = Math.min(i + MAX_FILES_PER_CHUNK, totalFiles);
-    const prompt = buildClassificationPrompt(analysis, i, end);
+    const effectiveMax = opts?.maxFeatures ?? MAX_TOP_LEVEL_FEATURES;
+    const prompt = buildClassificationPrompt(analysis, i, end, effectiveMax);
 
     const response = await openai.chat.completions.create({
       model,
@@ -137,7 +139,12 @@ const mergeFeatures = (features: IFeatureNode[]): IFeatureNode[] => {
         }
       }
       if (feature.children.length > 0) {
-        existing.children.push(...feature.children);
+        const existingChildIds = new Set(existing.children.map((c) => c.id));
+        for (const child of feature.children) {
+          if (!existingChildIds.has(child.id)) {
+            existing.children.push(child);
+          }
+        }
       }
     } else {
       byId.set(feature.id, { ...feature });

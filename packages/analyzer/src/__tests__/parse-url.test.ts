@@ -27,14 +27,19 @@ describe('parseGitHubUrl', () => {
     expect(result).toEqual({ owner: 'facebook', name: 'react', ref: 'main' });
   });
 
+  it('parses URL with tree/branch ref containing slashes', () => {
+    const result = parseGitHubUrl('https://github.com/facebook/react/tree/feature/my-branch');
+    expect(result).toEqual({ owner: 'facebook', name: 'react', ref: 'feature/my-branch' });
+  });
+
   it('parses URL with ?ref= query param', () => {
     const result = parseGitHubUrl('https://github.com/facebook/react?ref=v18.0.0');
     expect(result).toEqual({ owner: 'facebook', name: 'react', ref: 'v18.0.0' });
   });
 
-  it('parses URL with #hash ref', () => {
-    const result = parseGitHubUrl('https://github.com/facebook/react#v18.0.0');
-    expect(result).toEqual({ owner: 'facebook', name: 'react', ref: 'v18.0.0' });
+  it('ignores #hash fragments (anchors, not refs)', () => {
+    const result = parseGitHubUrl('https://github.com/facebook/react#readme');
+    expect(result).toEqual({ owner: 'facebook', name: 'react' });
   });
 
   it('handles owners and repos with dots and hyphens', () => {
