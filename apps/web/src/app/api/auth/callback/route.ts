@@ -4,7 +4,9 @@ import { syncAuthenticatedUser } from '@/lib/auth/user-store';
 
 export const dynamic = 'force-dynamic';
 
+const callbackBaseUrl = process.env['APP_BASE_URL'];
 export const GET = handleAuth({
+  baseURL: callbackBaseUrl,
   returnPathname: '/dashboard',
   onSuccess: async ({ user, oauthTokens }) => {
     await syncAuthenticatedUser(
