@@ -29,25 +29,34 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const repositories = pgTable('repositories', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  owner: text('owner').notNull(),
-  name: text('name').notNull(),
-  fullName: text('full_name').notNull(),
-  description: text('description'),
-  isPrivate: boolean('is_private').default(false).notNull(),
-  defaultBranch: text('default_branch').default('main').notNull(),
-  trackedBranch: text('tracked_branch'),
-  autoUpdate: boolean('auto_update').default(false).notNull(),
-  webhookId: text('webhook_id'),
-  webhookSecret: text('webhook_secret'),
-  language: text('language'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const repositories = pgTable(
+  'repositories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    owner: text('owner').notNull(),
+    name: text('name').notNull(),
+    fullName: text('full_name').notNull(),
+    description: text('description'),
+    isPrivate: boolean('is_private').default(false).notNull(),
+    defaultBranch: text('default_branch').default('main').notNull(),
+    trackedBranch: text('tracked_branch'),
+    autoUpdate: boolean('auto_update').default(false).notNull(),
+    webhookId: text('webhook_id'),
+    webhookSecret: text('webhook_secret'),
+    language: text('language'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userRepositoryUnique: uniqueIndex('repositories_user_full_name_unique').on(
+      table.userId,
+      table.fullName,
+    ),
+  }),
+);
 
 export const wikiVersions = pgTable('wiki_versions', {
   id: uuid('id').primaryKey().defaultRandom(),

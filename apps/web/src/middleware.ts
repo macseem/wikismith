@@ -2,7 +2,7 @@ import { authkit, applyResponseHeaders, partitionAuthkitHeaders } from '@workos-
 import { NextRequest, NextResponse } from 'next/server';
 
 const PROTECTED_PAGE_PREFIXES = ['/dashboard', '/settings', '/account'];
-const PROTECTED_API_PREFIXES = ['/api/generate'];
+const PROTECTED_API_PREFIXES = ['/api/generate', '/api/repos'];
 
 const matchesPrefix = (pathname: string, prefixes: string[]): boolean =>
   prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
