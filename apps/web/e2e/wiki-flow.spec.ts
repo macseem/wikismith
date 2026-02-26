@@ -119,6 +119,10 @@ test.describe('Wiki generation E2E flow', () => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
     await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
+    const navigationEntriesBefore = await page.evaluate(
+      () => window.performance.getEntriesByType('navigation').length,
+    );
+
     const sidebarList = page.locator('nav ul');
     const listLinks = sidebarList.getByRole('link');
     const linkCount = await listLinks.count();
@@ -131,10 +135,15 @@ test.describe('Wiki generation E2E flow', () => {
 
     await page.waitForURL(featureHref!, { timeout: 15_000 });
 
+    const navigationEntriesAfter = await page.evaluate(
+      () => window.performance.getEntriesByType('navigation').length,
+    );
+    expect(navigationEntriesAfter).toBe(navigationEntriesBefore);
+
     const heading = page.locator('article h1');
     await expect(heading).toBeVisible({ timeout: 10_000 });
 
-    const overviewLink = listLinks.first();
+    const overviewLink = page.locator('nav ul').getByRole('link').first();
     await overviewLink.click();
     await page.waitForURL(`/wiki/${OWNER}/${REPO}`, { timeout: 15_000 });
   });

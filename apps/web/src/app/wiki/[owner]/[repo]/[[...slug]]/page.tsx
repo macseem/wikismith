@@ -1,46 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { WikiSidebar } from '@/components/wiki/sidebar';
 import { WikiPageContent } from '@/components/wiki/page-content';
 import { useSession } from '@/hooks/use-session';
-import type { StoredWiki } from '@/lib/wiki-store';
 import type { IWikiPage } from '@wikismith/shared';
 import { Badge } from '@/components/ui/badge';
+import { apiClient, ApiClientError } from '@/lib/api/client';
+import type { StoredWikiContract } from '@wikismith/contracts';
 
 const WikiPage = () => {
   const params = useParams<{ owner: string; repo: string; slug?: string[] }>();
-  const [wiki, setWiki] = useState<StoredWiki | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { session, loading: sessionLoading } = useSession();
 
   const owner = params.owner;
   const repo = params.repo;
   const slug = params.slug?.[0] ?? 'overview';
+  const wikiQuery = useQuery({
+    queryKey: ['wiki', owner, repo],
+    queryFn: () => apiClient.getWiki(owner, repo),
+    staleTime: 5 * 60_000,
+  });
+  const wiki: StoredWikiContract | null = wikiQuery.data ?? null;
 
-  useEffect(() => {
-    const fetchWiki = async () => {
-      try {
-        const response = await fetch(`/api/wiki/${owner}/${repo}`);
-        if (!response.ok) {
-          setError('Wiki not found. Generate it first from the homepage.');
-          return;
-        }
-        const data = (await response.json()) as StoredWiki;
-        setWiki(data);
-      } catch {
-        setError('Failed to load wiki.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchWiki();
-  }, [owner, repo]);
-
-  if (loading) {
+  if (wikiQuery.isPending && !wiki) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="flex items-center gap-3 text-zinc-400">
@@ -51,11 +36,18 @@ const WikiPage = () => {
     );
   }
 
-  if (error !== null || !wiki) {
+  if (wikiQuery.isError || !wiki) {
+    const errorMessage =
+      wikiQuery.error instanceof ApiClientError
+        ? wikiQuery.error.payload.error
+        : wikiQuery.error instanceof Error
+          ? wikiQuery.error.message
+          : 'Wiki not found';
+
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-zinc-400 text-lg">{error ?? 'Wiki not found'}</p>
+          <p className="text-zinc-400 text-lg">{errorMessage}</p>
           <Link href="/" className="text-blue-400 hover:underline mt-4 inline-block">
             Go back home
           </Link>

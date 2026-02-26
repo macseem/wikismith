@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { parseGitHubUrl, ingest, analyze, classify } from '@wikismith/analyzer';
+import { apiContracts, type GenerateWikiRequest } from '@wikismith/contracts';
 import { generateWiki } from '@wikismith/generator';
 import { AppError, type IClassifiedFeatureTree, type IWikiPage } from '@wikismith/shared';
 import { getWiki, saveWiki } from '@/lib/wiki-store';
@@ -15,16 +16,22 @@ const isPlaywrightE2E =
   process.env['E2E_BYPASS_AUTH'] === '1' &&
   process.env['NODE_ENV'] !== 'production';
 
-interface GenerateBody {
-  url?: string;
-  ref?: string;
-  force?: boolean;
+interface SchemaParser<T> {
+  parse: (value: unknown) => T;
 }
+
+const jsonResponse = <T>(schema: SchemaParser<T>, payload: unknown, init?: ResponseInit) =>
+  NextResponse.json(schema.parse(payload), init);
 
 const reAuthPath = '/sign-in?redirect=%2Fdashboard&reauth=github_scope';
 
-const sendSSE = (controller: ReadableStreamDefaultController, event: string, data: unknown) => {
-  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+const sendSSE = <T>(
+  controller: ReadableStreamDefaultController,
+  event: string,
+  data: unknown,
+  schema: SchemaParser<T>,
+) => {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(schema.parse(data))}\n\n`;
   controller.enqueue(new TextEncoder().encode(payload));
 };
 
@@ -158,7 +165,8 @@ const generatePages = async (
 export const POST = async (request: Request) => {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json(
+    return jsonResponse(
+      apiContracts.generate.post.error,
       {
         error: 'Authentication required',
         code: 'UNAUTHENTICATED',
@@ -170,19 +178,34 @@ export const POST = async (request: Request) => {
 
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-    return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
+    return jsonResponse(
+      apiContracts.generate.post.error,
+      { error: 'Request body too large', code: 'REQUEST_TOO_LARGE' },
+      { status: 413 },
+    );
   }
 
-  let body: GenerateBody;
+  let rawBody: unknown;
   try {
-    body = (await request.json()) as GenerateBody;
+    rawBody = (await request.json()) as unknown;
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return jsonResponse(
+      apiContracts.generate.post.error,
+      { error: 'Invalid JSON body', code: 'INVALID_BODY' },
+      { status: 400 },
+    );
   }
 
-  if (!body.url) {
-    return NextResponse.json({ error: 'Repository URL is required' }, { status: 400 });
+  const bodyResult = apiContracts.generate.post.body.safeParse(rawBody);
+  if (!bodyResult.success) {
+    return jsonResponse(
+      apiContracts.generate.post.error,
+      { error: 'Repository URL is required', code: 'INVALID_BODY' },
+      { status: 400 },
+    );
   }
+
+  const body: GenerateWikiRequest = bodyResult.data;
 
   let parsed: ReturnType<typeof parseGitHubUrl>;
   try {
@@ -190,13 +213,17 @@ export const POST = async (request: Request) => {
   } catch (error) {
     const message = error instanceof AppError ? error.message : 'Invalid repository URL';
     const code = error instanceof AppError ? error.code : 'INVALID_URL';
-    return NextResponse.json({ error: message, code }, { status: 400 });
+    return jsonResponse(
+      apiContracts.generate.post.error,
+      { error: message, code },
+      { status: 400 },
+    );
   }
 
   if (!body.force) {
     const cached = await getWiki(parsed.owner, parsed.name, session.user.workosId);
     if (cached) {
-      return NextResponse.json({
+      return jsonResponse(apiContracts.generate.post.response, {
         owner: parsed.owner,
         repo: parsed.name,
         commitSha: cached.commitSha,
@@ -225,7 +252,8 @@ export const POST = async (request: Request) => {
     }
   } catch (error) {
     console.error('[Generate] Failed to sync user or enforce rate limit', error);
-    return NextResponse.json(
+    return jsonResponse(
+      apiContracts.generate.post.error,
       {
         error: 'Unable to validate your account right now. Please try again.',
         code: 'ACCOUNT_VALIDATION_FAILED',
@@ -235,7 +263,8 @@ export const POST = async (request: Request) => {
   }
 
   if (!rateLimit.allowed) {
-    return NextResponse.json(
+    return jsonResponse(
+      apiContracts.generate.post.error,
       {
         error: `You've reached your daily wiki generation limit (${rateLimit.used}/${rateLimit.limit}). Try again after reset.`,
         code: 'RATE_LIMITED',
@@ -257,7 +286,8 @@ export const POST = async (request: Request) => {
     githubAccessToken = await getGitHubAccessTokenByWorkOSId(session.user.workosId);
   } catch (error) {
     console.error('[Generate] Failed to load GitHub access token', error);
-    return NextResponse.json(
+    return jsonResponse(
+      apiContracts.generate.post.error,
       {
         error: 'Unable to load your GitHub authorization right now. Please try again.',
         code: 'GITHUB_TOKEN_LOOKUP_FAILED',
@@ -276,27 +306,42 @@ export const POST = async (request: Request) => {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        sendSSE(controller, 'progress', {
-          stage: 'ingesting',
-          message: `Fetching ${parsed.owner}/${parsed.name}...`,
-        });
+        sendSSE(
+          controller,
+          'progress',
+          {
+            stage: 'ingesting',
+            message: `Fetching ${parsed.owner}/${parsed.name}...`,
+          },
+          apiContracts.generate.post.sse.progress,
+        );
 
-        const ingestion = await ingest(body.url!, {
+        const ingestion = await ingest(body.url, {
           ref: body.ref,
           token: githubAccessToken ?? undefined,
         });
 
-        sendSSE(controller, 'progress', {
-          stage: 'analyzing',
-          message: `Analyzing ${ingestion.metadata.totalFiles} files...`,
-        });
+        sendSSE(
+          controller,
+          'progress',
+          {
+            stage: 'analyzing',
+            message: `Analyzing ${ingestion.metadata.totalFiles} files...`,
+          },
+          apiContracts.generate.post.sse.progress,
+        );
 
         const analysis = analyze(ingestion);
 
-        sendSSE(controller, 'progress', {
-          stage: 'classifying',
-          message: `Classifying features across ${analysis.files.length} files...`,
-        });
+        sendSSE(
+          controller,
+          'progress',
+          {
+            stage: 'classifying',
+            message: `Classifying features across ${analysis.files.length} files...`,
+          },
+          apiContracts.generate.post.sse.progress,
+        );
 
         const featureTree = await classify(analysis, `${parsed.owner}/${parsed.name}`, {
           commitSha: ingestion.commitSha,
@@ -305,24 +350,34 @@ export const POST = async (request: Request) => {
         const totalPages =
           1 + featureTree.features.reduce((sum, f) => sum + 1 + f.children.length, 0);
 
-        sendSSE(controller, 'progress', {
-          stage: 'generating',
-          message: `Generating ${totalPages} wiki pages...`,
-          total: totalPages,
-          completed: 0,
-        });
+        sendSSE(
+          controller,
+          'progress',
+          {
+            stage: 'generating',
+            message: `Generating ${totalPages} wiki pages...`,
+            total: totalPages,
+            completed: 0,
+          },
+          apiContracts.generate.post.sse.progress,
+        );
 
         const pages = await generatePages(
           featureTree,
           ingestion,
           `${parsed.owner}/${parsed.name}`,
           (completed, total) => {
-            sendSSE(controller, 'progress', {
-              stage: 'generating',
-              message: `Generating wiki pages (${completed}/${total})...`,
-              total,
-              completed,
-            });
+            sendSSE(
+              controller,
+              'progress',
+              {
+                stage: 'generating',
+                message: `Generating wiki pages (${completed}/${total})...`,
+                total,
+                completed,
+              },
+              apiContracts.generate.post.sse.progress,
+            );
           },
         );
 
@@ -342,37 +397,57 @@ export const POST = async (request: Request) => {
           createdAt: new Date().toISOString(),
         });
 
-        sendSSE(controller, 'complete', {
-          owner: parsed.owner,
-          repo: parsed.name,
-          commitSha: ingestion.commitSha,
-          cached: false,
-        });
+        sendSSE(
+          controller,
+          'complete',
+          {
+            owner: parsed.owner,
+            repo: parsed.name,
+            commitSha: ingestion.commitSha,
+            cached: false,
+          },
+          apiContracts.generate.post.sse.complete,
+        );
       } catch (error) {
         if (error instanceof AppError) {
           if (error.code === 'ACCESS_DENIED') {
-            sendSSE(controller, 'error', {
-              error:
-                'GitHub access was denied for this repository. Re-authenticate and approve repository scopes.',
-              code: 'MISSING_GITHUB_SCOPE',
-              statusCode: 403,
-              reauthPath: reAuthPath,
-            });
+            sendSSE(
+              controller,
+              'error',
+              {
+                error:
+                  'GitHub access was denied for this repository. Re-authenticate and approve repository scopes.',
+                code: 'MISSING_GITHUB_SCOPE',
+                statusCode: 403,
+                reauthPath: reAuthPath,
+              },
+              apiContracts.generate.post.sse.error,
+            );
             return;
           }
 
-          sendSSE(controller, 'error', {
-            error: error.message,
-            code: error.code,
-            statusCode: error.statusCode,
-          });
+          sendSSE(
+            controller,
+            'error',
+            {
+              error: error.message,
+              code: error.code,
+              statusCode: error.statusCode,
+            },
+            apiContracts.generate.post.sse.error,
+          );
         } else {
           console.error('Generation error:', error);
-          sendSSE(controller, 'error', {
-            error: 'Internal server error',
-            code: 'INTERNAL_ERROR',
-            statusCode: 500,
-          });
+          sendSSE(
+            controller,
+            'error',
+            {
+              error: 'Internal server error',
+              code: 'INTERNAL_ERROR',
+              statusCode: 500,
+            },
+            apiContracts.generate.post.sse.error,
+          );
         }
       } finally {
         controller.close();
@@ -391,12 +466,12 @@ export const POST = async (request: Request) => {
 
 const runSynchronous = async (
   parsed: ReturnType<typeof parseGitHubUrl>,
-  body: GenerateBody,
+  body: GenerateWikiRequest,
   githubAccessToken: string | null,
   workosUserId: string,
 ) => {
   try {
-    const ingestion = await ingest(body.url!, {
+    const ingestion = await ingest(body.url, {
       ref: body.ref,
       token: githubAccessToken ?? undefined,
     });
@@ -423,7 +498,7 @@ const runSynchronous = async (
       createdAt: new Date().toISOString(),
     });
 
-    return NextResponse.json({
+    return jsonResponse(apiContracts.generate.post.response, {
       owner: parsed.owner,
       repo: parsed.name,
       commitSha: ingestion.commitSha,
@@ -432,7 +507,8 @@ const runSynchronous = async (
   } catch (error) {
     if (error instanceof AppError) {
       if (error.code === 'ACCESS_DENIED') {
-        return NextResponse.json(
+        return jsonResponse(
+          apiContracts.generate.post.error,
           {
             error:
               'GitHub access was denied for this repository. Re-authenticate and approve repository scopes.',
@@ -443,12 +519,17 @@ const runSynchronous = async (
         );
       }
 
-      return NextResponse.json(
+      return jsonResponse(
+        apiContracts.generate.post.error,
         { error: error.message, code: error.code },
         { status: error.statusCode },
       );
     }
     console.error('Generation error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonResponse(
+      apiContracts.generate.post.error,
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 },
+    );
   }
 };

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { WikiStatus } from '@/lib/repos/repository-service';
+import { apiClient, ApiClientError } from '@/lib/api/client';
 
 interface RepositoryCardActionsProps {
   owner: string;
@@ -147,35 +148,20 @@ export const RepositoryCardActions = ({
     setStatus('generating');
 
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          url: repoUrl,
-          force: status === 'ready',
-        }),
+      const data = await apiClient.generateWiki({
+        url: repoUrl,
+        force: status === 'ready',
       });
-
-      if (!response.ok) {
-        const data = (await response.json()) as RouteErrorPayload;
-        handleRouteError(data, 'Generation failed');
-        setStatus('failed');
-        return;
-      }
-
-      const data = (await response.json()) as { owner?: string; repo?: string };
-      if (!data.owner || !data.repo) {
-        setStatus('failed');
-        setError('Generation response was incomplete. Please try again.');
-        return;
-      }
 
       setStatus('ready');
       router.push(`/wiki/${data.owner}/${data.repo}`);
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        handleRouteError(error.payload, 'Generation failed');
+        setStatus('failed');
+        return;
+      }
+
       setStatus('failed');
       setError('Generation failed');
     } finally {
