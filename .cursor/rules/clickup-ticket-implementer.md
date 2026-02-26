@@ -1,0 +1,1 @@
+../../skills/clickup-ticket-implementer/SKILL.md

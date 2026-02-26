@@ -2,17 +2,17 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Monorepo** | Turborepo + pnpm |
-| **Web App** | Next.js 16 (App Router) |
-| **Styling** | Tailwind CSS + shadcn/ui |
-| **Database** | Neon PostgreSQL + pgvector |
-| **ORM** | Drizzle ORM + Drizzle Kit |
-| **Auth** | WorkOS (GitHub OAuth social connection) |
-| **AI** | OpenAI SDK (gpt-5-mini + text-embedding-3-small) |
-| **Testing** | Vitest + Playwright |
-| **Deployment** | Vercel |
+| Layer          | Technology                                       |
+| -------------- | ------------------------------------------------ |
+| **Monorepo**   | Turborepo + pnpm                                 |
+| **Web App**    | Next.js 16 (App Router)                          |
+| **Styling**    | Tailwind CSS + shadcn/ui                         |
+| **Database**   | Neon PostgreSQL + pgvector                       |
+| **ORM**        | Drizzle ORM + Drizzle Kit                        |
+| **Auth**       | WorkOS (GitHub OAuth social connection)          |
+| **AI**         | OpenAI SDK (gpt-5-mini + text-embedding-3-small) |
+| **Testing**    | Vitest + Playwright                              |
+| **Deployment** | Vercel                                           |
 
 ## Repository Structure
 
@@ -44,14 +44,19 @@ wikismith/
 
 The project is a monorepo managed by **pnpm** and **Turborepo**.
 
-| Command | What it does |
-|---------|-------------|
-| `pnpm install` | Install all workspace packages |
-| `pnpm dev` | Start development servers for all apps |
-| `pnpm build` | Build all packages and apps |
-| `pnpm lint` | Run ESLint + Prettier across the repo |
-| `pnpm test` | Run Vitest across all workspaces |
+| Command           | What it does                               |
+| ----------------- | ------------------------------------------ |
+| `pnpm install`    | Install all workspace packages             |
+| `pnpm dev`        | Start development servers for all apps     |
+| `pnpm build`      | Build all packages and apps                |
+| `pnpm lint`       | Run ESLint + Prettier across the repo      |
+| `pnpm test`       | Run Vitest across all workspaces           |
 | `pnpm type-check` | TypeScript type-checking on all workspaces |
+
+### Optional Local Review Tool
+
+- `cubic review` is used in some agent workflows for local AI review.
+- `cubic` is not a workspace dependency; install it globally on the machine and ensure it is available in `PATH` before using skills that require it.
 
 ### Running a Single Test File
 
@@ -75,13 +80,13 @@ pnpm test --filter @wikismith/analyzer
 
 ### 2.2 Naming Conventions
 
-| Category | Rule |
-|----------|------|
+| Category              | Rule                                         |
+| --------------------- | -------------------------------------------- |
 | Variables / constants | `camelCase`, `UPPER_SNAKE_CASE` for env vars |
-| Functions | `camelCase`, descriptive names |
-| React components | `PascalCase`, filename matches component |
-| Types / interfaces | `PascalCase`, prefix interfaces with `I` |
-| Enums | `PascalCase` with constant values |
+| Functions             | `camelCase`, descriptive names               |
+| React components      | `PascalCase`, filename matches component     |
+| Types / interfaces    | `PascalCase`, prefix interfaces with `I`     |
+| Enums                 | `PascalCase` with constant values            |
 
 ### 2.3 Formatting
 
@@ -118,10 +123,10 @@ All implementation tasks are tracked in ClickUp. **Every agent must use ClickUp 
 
 The ClickUp space uses two statuses:
 
-| Status | Meaning |
-|--------|---------|
-| `to do` | Not started — available for pickup |
-| `complete` | Done — acceptance criteria met |
+| Status     | Meaning                            |
+| ---------- | ---------------------------------- |
+| `to do`    | Not started — available for pickup |
+| `complete` | Done — acceptance criteria met     |
 
 > **No "in progress" status exists.** When starting a task, add a comment via `clickup_create_task_comment` stating you are working on it. Set `complete` when done.
 
@@ -137,14 +142,14 @@ WikiSmith (folder)
 
 ### Remaining Tickets (pick from here)
 
-| Task ID | Task Name | Phase | Status | Dependencies |
-|---------|-----------|-------|--------|-------------|
-| `86c8ez71x` | CI/CD Pipeline & Vercel Deployment Baseline | 0 | `to do` | Scaffold ✅ |
-| `86c8ez7tz` | Authentication & Authorization (WorkOS + GitHub OAuth) | 2 | `to do` | DB Schema ✅ |
-| `86c8ez7xk` | Repository Management Dashboard | 2 | `to do` | Auth |
-| `86c8ez82a` | Embeddings Pipeline & RAG Infrastructure | 3 | `to do` | Generation ✅, DB ✅ |
-| `86c8ez851` | Q&A System (RAG + Streaming) | 3 | `to do` | Embeddings, Auth |
-| `86c8ez87w` | Wiki Versioning & Auto-Update (Webhooks) | 3 | `to do` | Generation ✅, Auth |
+| Task ID     | Task Name                                              | Phase | Status  | Dependencies         |
+| ----------- | ------------------------------------------------------ | ----- | ------- | -------------------- |
+| `86c8ez71x` | CI/CD Pipeline & Vercel Deployment Baseline            | 0     | `to do` | Scaffold ✅          |
+| `86c8ez7tz` | Authentication & Authorization (WorkOS + GitHub OAuth) | 2     | `to do` | DB Schema ✅         |
+| `86c8ez7xk` | Repository Management Dashboard                        | 2     | `to do` | Auth                 |
+| `86c8ez82a` | Embeddings Pipeline & RAG Infrastructure               | 3     | `to do` | Generation ✅, DB ✅ |
+| `86c8ez851` | Q&A System (RAG + Streaming)                           | 3     | `to do` | Embeddings, Auth     |
+| `86c8ez87w` | Wiki Versioning & Auto-Update (Webhooks)               | 3     | `to do` | Generation ✅, Auth  |
 
 Tasks with all dependencies marked ✅ are **ready for pickup now**.
 
@@ -196,13 +201,14 @@ Phase 3 — Advanced (⬜ partially ready):
 
 Skills are defined in `skills/` and symlinked to `.cursor/rules/` (Cursor) and `.agents/skills/` (OpenCode).
 
-| Agent | Skill File | Purpose |
-|-------|-----------|---------|
-| PRD Writer | `skills/prd-writer/SKILL.md` | Writes feature PRDs |
-| Test Architect | `skills/test-architect/SKILL.md` | Designs test strategies and specs |
-| Code Reviewer | `skills/code-reviewer/SKILL.md` | Reviews code quality and patterns |
-| Architecture | `skills/architecture/SKILL.md` | Makes and documents architecture decisions |
-| UI/UX | `skills/ui-ux/SKILL.md` | Designs and reviews UI components |
+| Agent                      | Skill File                                   | Purpose                                                           |
+| -------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| PRD Writer                 | `skills/prd-writer/SKILL.md`                 | Writes feature PRDs                                               |
+| Test Architect             | `skills/test-architect/SKILL.md`             | Designs test strategies and specs                                 |
+| Code Reviewer              | `skills/code-reviewer/SKILL.md`              | Reviews code quality and patterns                                 |
+| Architecture               | `skills/architecture/SKILL.md`               | Makes and documents architecture decisions                        |
+| UI/UX                      | `skills/ui-ux/SKILL.md`                      | Designs and reviews UI components                                 |
+| ClickUp Ticket Implementer | `skills/clickup-ticket-implementer/SKILL.md` | Executes ClickUp tickets end-to-end, including PR/CI/review loops |
 
 ## 6. Feature PRD Conventions
 
