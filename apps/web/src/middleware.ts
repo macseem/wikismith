@@ -14,6 +14,14 @@ const getReturnPathname = (request: NextRequest): string => {
 };
 
 export default async function middleware(request: NextRequest) {
+  const allowE2EBypass =
+    process.env['E2E_BYPASS_AUTH'] === '1' &&
+    (process.env['NODE_ENV'] !== 'production' || process.env['PLAYWRIGHT_E2E'] === '1');
+
+  if (allowE2EBypass) {
+    return NextResponse.next();
+  }
+
   const redirectUri =
     process.env['WORKOS_REDIRECT_URI'] ?? process.env['NEXT_PUBLIC_WORKOS_REDIRECT_URI'];
   const { session, headers: authkitHeaders } = await authkit(request, {

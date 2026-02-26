@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { parseGitHubUrl, ingest, analyze, classify } from '@wikismith/analyzer';
 import { generateWiki } from '@wikismith/generator';
-import { AppError } from '@wikismith/shared';
-import { saveWiki, hasWiki, getWiki } from '@/lib/wiki-store';
+import { AppError, type IClassifiedFeatureTree, type IWikiPage } from '@wikismith/shared';
+import { getWiki, saveWiki } from '@/lib/wiki-store';
 import { getSession } from '@/lib/auth/session';
 import { getGitHubAccessTokenByWorkOSId, syncAuthenticatedUser } from '@/lib/auth/user-store';
 import { incrementDailyGenerationCount } from '@/lib/auth/rate-limit';
@@ -10,6 +10,7 @@ import { incrementDailyGenerationCount } from '@/lib/auth/rate-limit';
 export const maxDuration = 300;
 
 const MAX_BODY_SIZE = 1024;
+const isPlaywrightE2E = process.env['PLAYWRIGHT_E2E'] === '1';
 
 interface GenerateBody {
   url?: string;
@@ -22,6 +23,133 @@ const reAuthPath = '/sign-in?redirect=%2Fdashboard&reauth=github_scope';
 const sendSSE = (controller: ReadableStreamDefaultController, event: string, data: unknown) => {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   controller.enqueue(new TextEncoder().encode(payload));
+};
+
+const slugify = (value: string): string => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return normalized || 'feature';
+};
+
+const buildDeterministicWikiPages = async (
+  featureTree: IClassifiedFeatureTree,
+  repoFullName: string,
+  commitSha: string,
+  onProgress?: (completed: number, total: number) => void,
+): Promise<IWikiPage[]> => {
+  const pages: IWikiPage[] = [];
+  const total =
+    1 + featureTree.features.reduce((sum, feature) => sum + 1 + feature.children.length, 0);
+  let completed = 0;
+  const overviewPageId = crypto.randomUUID();
+
+  const reportProgress = () => {
+    completed += 1;
+    onProgress?.(completed, total);
+  };
+
+  pages.push({
+    id: overviewPageId,
+    featureId: 'overview',
+    slug: 'overview',
+    title: 'Overview',
+    content: [
+      `## ${repoFullName}`,
+      '',
+      `Generated for commit \`${commitSha}\` with ${featureTree.features.length} top-level features.`,
+      '',
+      '## Highlights',
+      '- Feature-oriented navigation generated from repository analysis.',
+      '- Pages include deterministic content for local E2E runs.',
+    ].join('\n'),
+    citations: [],
+    parentPageId: null,
+    order: 0,
+  });
+  reportProgress();
+
+  let order = 1;
+  featureTree.features.forEach((feature, featureIndex) => {
+    const featurePageId = crypto.randomUUID();
+    const featureSlugBase = slugify(feature.name);
+    const featureSlug = `${featureSlugBase}-${featureIndex + 1}`;
+    const relevantFiles = feature.relevantFiles.slice(0, 5);
+
+    pages.push({
+      id: featurePageId,
+      featureId: feature.id,
+      slug: featureSlug,
+      title: feature.name,
+      content: [
+        `## ${feature.name}`,
+        '',
+        feature.description || 'This feature groups related repository behavior.',
+        '',
+        '## Relevant files',
+        ...(relevantFiles.length > 0
+          ? relevantFiles.map((file) => `- \`${file.path}\` (${file.role})`)
+          : ['- No relevant files were detected for this feature.']),
+      ].join('\n'),
+      citations: [],
+      parentPageId: overviewPageId,
+      order,
+    });
+    order += 1;
+    reportProgress();
+
+    feature.children.forEach((child, childIndex) => {
+      const childSlugBase = slugify(child.name);
+      const childSlug = `${featureSlug}-${childSlugBase}-${childIndex + 1}`;
+
+      pages.push({
+        id: crypto.randomUUID(),
+        featureId: child.id,
+        slug: childSlug,
+        title: child.name,
+        content: [
+          `## ${child.name}`,
+          '',
+          child.description || 'Sub-feature details extracted from repository structure.',
+          '',
+          '## Parent feature',
+          `- ${feature.name}`,
+        ].join('\n'),
+        citations: [],
+        parentPageId: featurePageId,
+        order,
+      });
+      order += 1;
+      reportProgress();
+    });
+  });
+
+  return pages;
+};
+
+const generatePages = async (
+  featureTree: IClassifiedFeatureTree,
+  ingestion: Awaited<ReturnType<typeof ingest>>,
+  repoFullName: string,
+  onProgress?: (completed: number, total: number) => void,
+): Promise<IWikiPage[]> => {
+  if (isPlaywrightE2E) {
+    return buildDeterministicWikiPages(featureTree, repoFullName, ingestion.commitSha, onProgress);
+  }
+
+  return generateWiki(
+    {
+      featureTree,
+      fileContents: ingestion.files,
+      repoFullName,
+      commitSha: ingestion.commitSha,
+      readmeContent: ingestion.readme?.content,
+    },
+    onProgress ? { onProgress } : undefined,
+  );
 };
 
 export const POST = async (request: Request) => {
@@ -62,14 +190,16 @@ export const POST = async (request: Request) => {
     return NextResponse.json({ error: message, code }, { status: 400 });
   }
 
-  if (!body.force && hasWiki(parsed.owner, parsed.name)) {
-    const cached = getWiki(parsed.owner, parsed.name)!;
-    return NextResponse.json({
-      owner: parsed.owner,
-      repo: parsed.name,
-      commitSha: cached.commitSha,
-      cached: true,
-    });
+  if (!body.force) {
+    const cached = await getWiki(parsed.owner, parsed.name, session.user.workosId);
+    if (cached) {
+      return NextResponse.json({
+        owner: parsed.owner,
+        repo: parsed.name,
+        commitSha: cached.commitSha,
+        cached: true,
+      });
+    }
   }
 
   let rateLimit: Awaited<ReturnType<typeof incrementDailyGenerationCount>>;
@@ -79,7 +209,17 @@ export const POST = async (request: Request) => {
       email: session.user.email,
     });
 
-    rateLimit = await incrementDailyGenerationCount(session.user.workosId);
+    if (isPlaywrightE2E) {
+      rateLimit = {
+        allowed: true,
+        used: 0,
+        limit: Number.MAX_SAFE_INTEGER,
+        retryAfterSeconds: 0,
+        resetAt: new Date().toISOString(),
+      };
+    } else {
+      rateLimit = await incrementDailyGenerationCount(session.user.workosId);
+    }
   } catch (error) {
     console.error('[Generate] Failed to sync user or enforce rate limit', error);
     return NextResponse.json(
@@ -169,30 +309,25 @@ export const POST = async (request: Request) => {
           completed: 0,
         });
 
-        const pages = await generateWiki(
-          {
-            featureTree,
-            fileContents: ingestion.files,
-            repoFullName: `${parsed.owner}/${parsed.name}`,
-            commitSha: ingestion.commitSha,
-            readmeContent: ingestion.readme?.content,
-          },
-          {
-            onProgress: (completed, total) => {
-              sendSSE(controller, 'progress', {
-                stage: 'generating',
-                message: `Generating wiki pages (${completed}/${total})...`,
-                total,
-                completed,
-              });
-            },
+        const pages = await generatePages(
+          featureTree,
+          ingestion,
+          `${parsed.owner}/${parsed.name}`,
+          (completed, total) => {
+            sendSSE(controller, 'progress', {
+              stage: 'generating',
+              message: `Generating wiki pages (${completed}/${total})...`,
+              total,
+              completed,
+            });
           },
         );
 
-        saveWiki({
+        await saveWiki({
           generatedByWorkosId: session.user.workosId,
           owner: parsed.owner,
           repo: parsed.name,
+          branch: ingestion.ref,
           commitSha: ingestion.commitSha,
           pages,
           featureTree,
@@ -267,18 +402,13 @@ const runSynchronous = async (
       commitSha: ingestion.commitSha,
     });
 
-    const pages = await generateWiki({
-      featureTree,
-      fileContents: ingestion.files,
-      repoFullName: `${parsed.owner}/${parsed.name}`,
-      commitSha: ingestion.commitSha,
-      readmeContent: ingestion.readme?.content,
-    });
+    const pages = await generatePages(featureTree, ingestion, `${parsed.owner}/${parsed.name}`);
 
-    saveWiki({
+    await saveWiki({
       generatedByWorkosId: workosUserId,
       owner: parsed.owner,
       repo: parsed.name,
+      branch: ingestion.ref,
       commitSha: ingestion.commitSha,
       pages,
       featureTree,

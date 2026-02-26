@@ -5,6 +5,7 @@ import { resolve } from 'path';
 config({ path: resolve(__dirname, '../../.env') });
 
 const PORT = 3099;
+const useProdServer = process.env['PLAYWRIGHT_USE_PROD_SERVER'] !== '0';
 
 export default defineConfig({
   testDir: './e2e',
@@ -28,14 +29,20 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm next dev --port ${PORT}`,
+    command: useProdServer
+      ? `pnpm next build && pnpm next start --port ${PORT}`
+      : `pnpm next dev --port ${PORT}`,
     port: PORT,
-    timeout: 60_000,
+    timeout: useProdServer ? 300_000 : 60_000,
     reuseExistingServer: !process.env['CI'],
     env: {
-      NODE_ENV: 'development',
+      NODE_ENV: useProdServer ? 'production' : 'development',
       OPENAI_API_KEY: process.env['OPENAI_API_KEY'] ?? '',
       DATABASE_URL: process.env['DATABASE_URL'] ?? '',
+      E2E_BYPASS_AUTH: '1',
+      PLAYWRIGHT_E2E: '1',
+      E2E_WORKOS_ID: 'e2e_workos_user',
+      E2E_USER_EMAIL: 'e2e@wikismith.local',
     },
   },
 });

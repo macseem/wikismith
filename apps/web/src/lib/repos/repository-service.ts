@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { AppError } from '@wikismith/shared';
-import { deleteWiki, getWiki } from '@/lib/wiki-store';
+import { deleteWiki } from '@/lib/wiki-store';
 import {
   fetchGitHubBranches,
   fetchGitHubReposPage,
@@ -326,22 +326,11 @@ export const getRepositoryDashboardData = async ({
     }
   }
 
-  const statusFromCache = (owner: string, name: string): WikiStatus => {
-    const wiki = getWiki(owner, name);
-    if (!wiki || wiki.generatedByWorkosId !== workosUserId) {
-      return 'not_generated';
-    }
-
-    return 'ready';
-  };
-
   const items = repos.map((repo) => {
     const dbRepo = settingsByFullName.get(repo.fullName);
     const latestVersion = dbRepo ? latestVersionByRepository.get(dbRepo.id) : null;
 
-    const wikiStatus = latestVersion
-      ? normalizeWikiStatus(latestVersion.status)
-      : statusFromCache(repo.owner, repo.name);
+    const wikiStatus = latestVersion ? normalizeWikiStatus(latestVersion.status) : 'not_generated';
 
     return {
       owner: repo.owner,
@@ -499,28 +488,7 @@ export const deleteRepositoryWiki = async (
   owner: string,
   repo: string,
 ): Promise<{ removedFromCache: boolean }> => {
-  const [{ db, repositories, wikiVersions }, user] = await Promise.all([
-    loadDb(),
-    getStoredUserByWorkOSId(workosUserId),
-  ]);
-
-  if (!user) {
-    throw new AppError('Authenticated user record is missing.', 'USER_NOT_FOUND', 404);
-  }
-
-  const fullName = `${owner}/${repo}`;
-  const dbRepo = await db.query.repositories.findFirst({
-    where: and(eq(repositories.userId, user.id), eq(repositories.fullName, fullName)),
-    columns: {
-      id: true,
-    },
-  });
-
-  if (dbRepo) {
-    await db.delete(wikiVersions).where(eq(wikiVersions.repositoryId, dbRepo.id));
-  }
-
   return {
-    removedFromCache: deleteWiki(owner, repo, workosUserId),
+    removedFromCache: await deleteWiki(owner, repo, workosUserId),
   };
 };

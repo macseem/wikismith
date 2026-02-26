@@ -19,6 +19,23 @@ const getName = (firstName?: string | null, lastName?: string | null): string | 
 };
 
 export const getSession = async (): Promise<AppSession | null> => {
+  const allowE2EBypass =
+    process.env['E2E_BYPASS_AUTH'] === '1' &&
+    (process.env['NODE_ENV'] !== 'production' || process.env['PLAYWRIGHT_E2E'] === '1');
+
+  if (allowE2EBypass) {
+    return {
+      sessionId: 'e2e-session',
+      accessToken: 'e2e-access-token',
+      user: {
+        workosId: process.env['E2E_WORKOS_ID'] ?? 'e2e_workos_user',
+        email: process.env['E2E_USER_EMAIL'] ?? 'e2e@wikismith.local',
+        name: 'E2E Test User',
+        avatarUrl: null,
+      },
+    };
+  }
+
   let auth;
   try {
     auth = await withAuth();

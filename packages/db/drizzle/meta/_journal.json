@@ -15,6 +15,20 @@
       "when": 1772060847395,
       "tag": "0001_living_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772062469734,
+      "tag": "0002_glorious_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772063391617,
+      "tag": "0003_lovely_misty_knight",
+      "breakpoints": true
     }
   ]
 }
