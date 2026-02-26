@@ -1,4 +1,4 @@
-const MARKDOWN_BLOCK_PREFIX_PATTERN = /^([#>|*-]|\d+\.)\s/;
+const MARKDOWN_BLOCK_PREFIX_PATTERN = /^([#>|*+-]|\d+\.)\s/;
 const TITLE_CASE_SECTION_PATTERN = /^[A-Z][A-Za-z0-9&/()+ -]{2,60}$/;
 const TRAILING_COLON_SECTION_PATTERN = /^[A-Z][A-Za-z0-9&/()+ -]{2,60}:$/;
 const BOLD_LABEL_LINE_PATTERN = /^\*\*[^*\n]+:\*\*\s+\S/;

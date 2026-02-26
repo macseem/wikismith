@@ -36,4 +36,13 @@ describe('normalizeGeneratedMarkdown', () => {
     expect(output).toContain('## Overview');
     expect(output).toContain('```ts\nMain Features\n**Auth:** Keep as-is in code.\n```');
   });
+
+  it('treats plus-prefixed bullets as markdown list items', () => {
+    const input = ['Overview', '', '+ Keep this list item', '', 'Main Features'].join('\n');
+
+    const output = normalizeGeneratedMarkdown(input);
+
+    expect(output).toContain('+ Keep this list item');
+    expect(output).toContain('Main Features');
+  });
 });
