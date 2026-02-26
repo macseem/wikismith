@@ -191,9 +191,5 @@ export const publicRequestRateLimits = pgTable(
     requestRouteBucketUnique: uniqueIndex(
       'public_request_rate_limits_request_route_bucket_unique',
     ).on(table.requestKey, table.route, table.bucketStart),
-    requestRouteIndex: index('public_request_rate_limits_request_route_idx').on(
-      table.requestKey,
-      table.route,
-    ),
   }),
 );

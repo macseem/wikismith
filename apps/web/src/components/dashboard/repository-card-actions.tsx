@@ -418,6 +418,7 @@ export const RepositoryCardActions = ({
                 type="checkbox"
                 checked={sharingPublic}
                 onChange={(event) => setSharingPublic(event.target.checked)}
+                disabled={isSharingLoading}
                 className="h-4 w-4 rounded border-zinc-700 bg-zinc-900"
               />
               Public wiki (shareable link)
@@ -428,6 +429,7 @@ export const RepositoryCardActions = ({
                 type="checkbox"
                 checked={sharingEmbedEnabled}
                 onChange={(event) => setSharingEmbedEnabled(event.target.checked)}
+                disabled={isSharingLoading}
                 className="h-4 w-4 rounded border-zinc-700 bg-zinc-900"
               />
               Allow embeds

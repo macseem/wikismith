@@ -91,7 +91,7 @@ Today, wiki access is effectively user-scoped: generated wiki retrieval is tied 
 
 - SM-001: At least 90% of users who enable sharing can open the public link successfully on first attempt.
 - SM-002: Public wiki page p95 response time remains within established wiki-read SLA.
-- SM-003: Token rotation invalidates previous link access within 1 minute in 99.9% of cases.
+- SM-003: Token rotation invalidates previous link access immediately after rotation (same request cycle).
 - SM-004: Embed route renders successfully across major browsers (Chromium, Firefox, Safari) in CI/manual validation.
 - SM-005: Zero unauthorized share-setting mutations in security test suite.
 
@@ -109,7 +109,6 @@ Today, wiki access is effectively user-scoped: generated wiki retrieval is tied 
 - OQ-002: Should public pages be fully crawlable, noindex by default, or configurable per wiki?
 - OQ-003: Should embed be opt-in default off for all public wikis, or inherit from public visibility initially?
 - OQ-004: Do we need signed short-lived embed tokens for higher-security enterprise scenarios in v1?
-- OQ-005: Should token rotation preserve old links for a grace period or invalidate immediately?
 
 ## 12. Milestones
 

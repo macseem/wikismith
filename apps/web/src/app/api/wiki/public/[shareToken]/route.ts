@@ -3,13 +3,21 @@ import { apiContracts } from '@wikismith/contracts';
 import { incrementPublicWikiRequestCount } from '@/lib/public-request-rate-limit';
 import { getPublicWikiByShareToken } from '@/lib/wiki-store';
 
-const getRequesterKey = (request: Request): string => {
+const getRequesterKey = (request: Request): string | null => {
   const forwardedFor = request.headers.get('x-forwarded-for');
   if (forwardedFor) {
-    return forwardedFor.split(',')[0]?.trim() || 'unknown';
+    const firstHop = forwardedFor.split(',')[0]?.trim();
+    if (firstHop) {
+      return firstHop;
+    }
   }
 
-  return request.headers.get('x-real-ip') ?? 'unknown';
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) {
+    return realIp;
+  }
+
+  return null;
 };
 
 interface SchemaParser<T> {
@@ -23,21 +31,24 @@ export const GET = async (
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
 ) => {
-  const rateLimit = await incrementPublicWikiRequestCount(getRequesterKey(request));
-  if (!rateLimit.allowed) {
-    return jsonResponse(
-      apiContracts.wiki.public.getByShareToken.error,
-      {
-        error: 'Too many requests',
-        code: 'RATE_LIMITED',
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(rateLimit.retryAfterSeconds),
+  const requesterKey = getRequesterKey(request);
+  if (requesterKey) {
+    const rateLimit = await incrementPublicWikiRequestCount(requesterKey);
+    if (!rateLimit.allowed) {
+      return jsonResponse(
+        apiContracts.wiki.public.getByShareToken.error,
+        {
+          error: 'Too many requests',
+          code: 'RATE_LIMITED',
         },
-      },
-    );
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
   }
 
   const parsedParams = apiContracts.wiki.public.getByShareToken.params.safeParse(await params);

@@ -73,12 +73,8 @@
           "name": "generation_jobs_wiki_version_id_wiki_versions_id_fk",
           "tableFrom": "generation_jobs",
           "tableTo": "wiki_versions",
-          "columnsFrom": [
-            "wiki_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["wiki_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -162,12 +158,8 @@
           "name": "generation_rate_limits_user_id_users_id_fk",
           "tableFrom": "generation_rate_limits",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -253,27 +245,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "public_request_rate_limits_request_route_idx": {
-          "name": "public_request_rate_limits_request_route_idx",
-          "columns": [
-            {
-              "expression": "request_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "route",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -415,12 +386,8 @@
           "name": "repositories_user_id_users_id_fk",
           "tableFrom": "repositories",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -530,9 +497,7 @@
         "users_workos_id_unique": {
           "name": "users_workos_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "workos_id"
-          ]
+          "columns": ["workos_id"]
         }
       },
       "policies": {},
@@ -614,12 +579,8 @@
           "name": "wiki_pages_wiki_version_id_wiki_versions_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "wiki_versions",
-          "columnsFrom": [
-            "wiki_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["wiki_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -627,12 +588,8 @@
           "name": "wiki_pages_parent_page_id_wiki_pages_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "parent_page_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_page_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -739,12 +696,8 @@
           "name": "wiki_shares_repository_id_repositories_id_fk",
           "tableFrom": "wiki_shares",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repository_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -892,12 +845,8 @@
           "name": "wiki_versions_repository_id_repositories_id_fk",
           "tableFrom": "wiki_versions",
           "tableTo": "repositories",
-          "columnsFrom": [
-            "repository_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["repository_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

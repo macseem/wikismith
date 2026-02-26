@@ -73,6 +73,70 @@ const toStoredWiki = (
   createdAt: version.createdAt.toISOString(),
 });
 
+const getLatestReadyWikiData = async (
+  db: DbModule['db'],
+  wikiVersions: DbModule['wikiVersions'],
+  wikiPages: DbModule['wikiPages'],
+  repositoryId: string,
+): Promise<{ version: StoredWikiVersion; pages: IWikiPage[] } | undefined> => {
+  const rawVersion = await db.query.wikiVersions.findFirst({
+    where: and(eq(wikiVersions.repositoryId, repositoryId), eq(wikiVersions.status, 'ready')),
+    orderBy: [desc(wikiVersions.generatedAt), desc(wikiVersions.createdAt)],
+    columns: {
+      id: true,
+      commitSha: true,
+      branch: true,
+      featureTree: true,
+      analysis: true,
+      createdAt: true,
+    },
+  });
+
+  if (!rawVersion) {
+    return undefined;
+  }
+
+  const version: StoredWikiVersion = {
+    id: rawVersion.id,
+    commitSha: rawVersion.commitSha,
+    branch: rawVersion.branch,
+    featureTree: rawVersion.featureTree as unknown as IClassifiedFeatureTree | null,
+    analysis: rawVersion.analysis as unknown as StoredWiki['analysis'] | null,
+    createdAt: rawVersion.createdAt,
+  };
+
+  const storedPages = await db.query.wikiPages.findMany({
+    where: eq(wikiPages.wikiVersionId, version.id),
+    orderBy: [wikiPages.sortOrder, wikiPages.createdAt],
+    columns: {
+      id: true,
+      featureId: true,
+      slug: true,
+      title: true,
+      content: true,
+      citations: true,
+      parentPageId: true,
+      sortOrder: true,
+    },
+  });
+
+  const pages: IWikiPage[] = storedPages.map((page) => ({
+    id: page.id,
+    featureId: page.featureId,
+    slug: page.slug,
+    title: page.title,
+    content: page.content,
+    citations: page.citations,
+    parentPageId: page.parentPageId,
+    order: page.sortOrder,
+  }));
+
+  return {
+    version,
+    pages,
+  };
+};
+
 const getRepository = async (
   owner: string,
   repo: string,
@@ -268,59 +332,12 @@ export const getWiki = async (
 
   const { db, wikiVersions, wikiPages } = await loadDb();
 
-  const rawVersion = await db.query.wikiVersions.findFirst({
-    where: and(eq(wikiVersions.repositoryId, repository.id), eq(wikiVersions.status, 'ready')),
-    orderBy: [desc(wikiVersions.generatedAt), desc(wikiVersions.createdAt)],
-    columns: {
-      id: true,
-      commitSha: true,
-      branch: true,
-      featureTree: true,
-      analysis: true,
-      createdAt: true,
-    },
-  });
-
-  if (!rawVersion) {
+  const wikiData = await getLatestReadyWikiData(db, wikiVersions, wikiPages, repository.id);
+  if (!wikiData) {
     return undefined;
   }
 
-  const version: StoredWikiVersion = {
-    id: rawVersion.id,
-    commitSha: rawVersion.commitSha,
-    branch: rawVersion.branch,
-    featureTree: rawVersion.featureTree as unknown as IClassifiedFeatureTree | null,
-    analysis: rawVersion.analysis as unknown as StoredWiki['analysis'] | null,
-    createdAt: rawVersion.createdAt,
-  };
-
-  const storedPages = await db.query.wikiPages.findMany({
-    where: eq(wikiPages.wikiVersionId, version.id),
-    orderBy: [wikiPages.sortOrder, wikiPages.createdAt],
-    columns: {
-      id: true,
-      featureId: true,
-      slug: true,
-      title: true,
-      content: true,
-      citations: true,
-      parentPageId: true,
-      sortOrder: true,
-    },
-  });
-
-  const pages: IWikiPage[] = storedPages.map((page) => ({
-    id: page.id,
-    featureId: page.featureId,
-    slug: page.slug,
-    title: page.title,
-    content: page.content,
-    citations: page.citations,
-    parentPageId: page.parentPageId,
-    order: page.sortOrder,
-  }));
-
-  return toStoredWiki(owner, repo, workosId, version, pages);
+  return toStoredWiki(owner, repo, workosId, wikiData.version, wikiData.pages);
 };
 
 export const hasWiki = async (owner: string, repo: string, workosId?: string): Promise<boolean> => {
@@ -402,57 +419,16 @@ export const getPublicWikiByShareToken = async (
     return undefined;
   }
 
-  const rawVersion = await db.query.wikiVersions.findFirst({
-    where: and(eq(wikiVersions.repositoryId, share.repositoryId), eq(wikiVersions.status, 'ready')),
-    orderBy: [desc(wikiVersions.generatedAt), desc(wikiVersions.createdAt)],
-    columns: {
-      id: true,
-      commitSha: true,
-      branch: true,
-      featureTree: true,
-      analysis: true,
-      createdAt: true,
-    },
-  });
-
-  if (!rawVersion) {
+  const wikiData = await getLatestReadyWikiData(db, wikiVersions, wikiPages, share.repositoryId);
+  if (!wikiData) {
     return undefined;
   }
 
-  const version: StoredWikiVersion = {
-    id: rawVersion.id,
-    commitSha: rawVersion.commitSha,
-    branch: rawVersion.branch,
-    featureTree: rawVersion.featureTree as unknown as IClassifiedFeatureTree | null,
-    analysis: rawVersion.analysis as unknown as StoredWiki['analysis'] | null,
-    createdAt: rawVersion.createdAt,
-  };
-
-  const storedPages = await db.query.wikiPages.findMany({
-    where: eq(wikiPages.wikiVersionId, version.id),
-    orderBy: [wikiPages.sortOrder, wikiPages.createdAt],
-    columns: {
-      id: true,
-      featureId: true,
-      slug: true,
-      title: true,
-      content: true,
-      citations: true,
-      parentPageId: true,
-      sortOrder: true,
-    },
-  });
-
-  const pages: IWikiPage[] = storedPages.map((page) => ({
-    id: page.id,
-    featureId: page.featureId,
-    slug: page.slug,
-    title: page.title,
-    content: page.content,
-    citations: page.citations,
-    parentPageId: page.parentPageId,
-    order: page.sortOrder,
-  }));
-
-  return toStoredWiki(repository.owner, repository.name, undefined, version, pages);
+  return toStoredWiki(
+    repository.owner,
+    repository.name,
+    undefined,
+    wikiData.version,
+    wikiData.pages,
+  );
 };

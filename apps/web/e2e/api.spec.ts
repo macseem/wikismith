@@ -64,6 +64,8 @@ test.describe('API: wiki sharing and public access', () => {
       shareToken: string;
     };
 
+    expect(initialSharing.isPublic).toBe(false);
+    expect(initialSharing.embedEnabled).toBe(false);
     expect(initialSharing.shareToken).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );

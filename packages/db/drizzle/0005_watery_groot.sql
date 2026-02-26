@@ -9,4 +9,3 @@ CREATE TABLE "public_request_rate_limits" (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "public_request_rate_limits_request_route_bucket_unique" ON "public_request_rate_limits" USING btree ("request_key","route","bucket_start");--> statement-breakpoint
-CREATE INDEX "public_request_rate_limits_request_route_idx" ON "public_request_rate_limits" USING btree ("request_key","route");
