@@ -20,6 +20,8 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
   const repoKey = `${owner}/${repo}`;
   const navRef = useRef<HTMLElement | null>(null);
   const restoredForRepoRef = useRef<string | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const pendingScrollTopRef = useRef<number | null>(null);
   const { isGroupCollapsed, setGroupCollapsed, ensureGroupExpanded, scrollTop, setScrollTop } =
     useWikiSidebarState(repoKey);
 
@@ -61,13 +63,33 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
     restoredForRepoRef.current = repoKey;
   }, [repoKey, scrollTop]);
 
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
   const handleScroll = () => {
     const nav = navRef.current;
     if (!nav) {
       return;
     }
 
-    setScrollTop(nav.scrollTop);
+    pendingScrollTopRef.current = nav.scrollTop;
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      if (pendingScrollTopRef.current !== null) {
+        setScrollTop(pendingScrollTopRef.current);
+      }
+      pendingScrollTopRef.current = null;
+      scrollFrameRef.current = null;
+    });
   };
 
   return (
