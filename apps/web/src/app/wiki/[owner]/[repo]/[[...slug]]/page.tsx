@@ -6,23 +6,10 @@ import { useParams } from 'next/navigation';
 import { WikiSidebar } from '@/components/wiki/sidebar';
 import { WikiPageContent } from '@/components/wiki/page-content';
 import { useSession } from '@/hooks/use-session';
-import type { StoredWiki } from '@/lib/wiki-store';
 import type { IWikiPage } from '@wikismith/shared';
 import { Badge } from '@/components/ui/badge';
-
-const fetchWiki = async (owner: string, repo: string): Promise<StoredWiki> => {
-  const response = await fetch(`/api/wiki/${owner}/${repo}`);
-
-  if (response.status === 404) {
-    throw new Error('Wiki not found. Generate it first from the homepage.');
-  }
-
-  if (!response.ok) {
-    throw new Error('Failed to load wiki.');
-  }
-
-  return (await response.json()) as StoredWiki;
-};
+import { apiClient, ApiClientError } from '@/lib/api/client';
+import type { StoredWikiContract } from '@wikismith/contracts';
 
 const WikiPage = () => {
   const params = useParams<{ owner: string; repo: string; slug?: string[] }>();
@@ -33,10 +20,10 @@ const WikiPage = () => {
   const slug = params.slug?.[0] ?? 'overview';
   const wikiQuery = useQuery({
     queryKey: ['wiki', owner, repo],
-    queryFn: () => fetchWiki(owner, repo),
+    queryFn: () => apiClient.getWiki(owner, repo),
     staleTime: 5 * 60_000,
   });
-  const wiki = wikiQuery.data ?? null;
+  const wiki: StoredWikiContract | null = wikiQuery.data ?? null;
 
   if (wikiQuery.isPending && !wiki) {
     return (
@@ -51,7 +38,11 @@ const WikiPage = () => {
 
   if (wikiQuery.isError || !wiki) {
     const errorMessage =
-      wikiQuery.error instanceof Error ? wikiQuery.error.message : 'Wiki not found';
+      wikiQuery.error instanceof ApiClientError
+        ? wikiQuery.error.payload.error
+        : wikiQuery.error instanceof Error
+          ? wikiQuery.error.message
+          : 'Wiki not found';
 
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">

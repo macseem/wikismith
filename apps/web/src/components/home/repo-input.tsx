@@ -4,13 +4,8 @@ import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-
-interface ProgressState {
-  stage: string;
-  message: string;
-  total?: number;
-  completed?: number;
-}
+import { apiClient, ApiClientError } from '@/lib/api/client';
+import type { GenerateWikiProgressEvent } from '@wikismith/contracts';
 
 const STAGE_LABELS: Record<string, string> = {
   ingesting: 'Fetching repository',
@@ -25,7 +20,7 @@ export const RepoInput = () => {
   const [error, setError] = useState<string | null>(null);
   const [errorActionPath, setErrorActionPath] = useState<string | null>(null);
   const [errorActionLabel, setErrorActionLabel] = useState<string | null>(null);
-  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [progress, setProgress] = useState<GenerateWikiProgressEvent | null>(null);
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
 
@@ -42,110 +37,33 @@ export const RepoInput = () => {
     abortRef.current = new AbortController();
 
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
+      const result = await apiClient.generateWikiStream(
+        { url: trimmed },
+        {
+          signal: abortRef.current.signal,
+          onProgress: (event) => {
+            setProgress(event);
+          },
         },
-        body: JSON.stringify({ url: trimmed }),
-        signal: abortRef.current.signal,
-      });
+      );
 
-      if (!response.ok) {
-        const data = (await response.json()) as {
-          error?: string;
-          signInPath?: string;
-          reauthPath?: string;
-          code?: string;
-        };
+      router.push(`/wiki/${result.owner}/${result.repo}`);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
 
-        if (data.reauthPath) {
-          setErrorActionPath(data.reauthPath);
+      if (err instanceof ApiClientError) {
+        if (err.payload.reauthPath) {
+          setErrorActionPath(err.payload.reauthPath);
           setErrorActionLabel('Re-authenticate');
-        } else if (data.signInPath || data.code === 'UNAUTHENTICATED') {
-          setErrorActionPath(data.signInPath ?? '/sign-in?redirect=%2Fdashboard');
+        } else if (err.payload.signInPath || err.payload.code === 'UNAUTHENTICATED') {
+          setErrorActionPath(err.payload.signInPath ?? '/sign-in?redirect=%2Fdashboard');
           setErrorActionLabel('Sign in');
         }
 
-        setError(data.error ?? 'Failed to process repository');
+        setError(err.payload.error);
         return;
       }
 
-      const contentType = response.headers.get('content-type') ?? '';
-
-      if (contentType.includes('application/json')) {
-        const data = (await response.json()) as {
-          owner?: string;
-          repo?: string;
-          error?: string;
-        };
-        if (!data.owner || !data.repo) {
-          setError(data.error ?? 'Invalid response from server');
-          return;
-        }
-        router.push(`/wiki/${data.owner}/${data.repo}`);
-        return;
-      }
-
-      if (!response.body) {
-        setError('Streaming not supported by the browser');
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let currentEvent = '';
-      let streamCompleted = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7);
-          } else if (line.startsWith('data: ')) {
-            let data: Record<string, unknown>;
-            try {
-              data = JSON.parse(line.slice(6)) as Record<string, unknown>;
-            } catch {
-              console.warn('[RepoInput] Ignoring malformed SSE payload');
-              continue;
-            }
-
-            if (currentEvent === 'progress') {
-              setProgress(data as unknown as ProgressState);
-            } else if (currentEvent === 'complete') {
-              const { owner, repo } = data as { owner: string; repo: string };
-              streamCompleted = true;
-              router.push(`/wiki/${owner}/${repo}`);
-              return;
-            } else if (currentEvent === 'error') {
-              streamCompleted = true;
-              setError((data.error as string) ?? 'Generation failed');
-              const reauthPath = data.reauthPath as string | undefined;
-              if (reauthPath) {
-                setErrorActionPath(reauthPath);
-                setErrorActionLabel('Re-authenticate');
-              }
-              return;
-            }
-          }
-        }
-      }
-
-      if (!streamCompleted) {
-        setError('Connection lost. Please try again.');
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      console.error('[RepoInput] Submission failed:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
