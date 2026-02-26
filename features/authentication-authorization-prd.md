@@ -138,7 +138,7 @@ Key challenges: storing the GitHub token securely (encrypted at rest), handling 
 ```ts
 // users table (extend as needed)
 interface IUser {
-  id: string;                    // WorkOS user ID (primary key)
+  id: string; // WorkOS user ID (primary key)
   email: string;
   createdAt: string;
   updatedAt: string;
@@ -146,9 +146,9 @@ interface IUser {
 
 // user_github_tokens table (encrypted)
 interface IUserGitHubToken {
-  userId: string;                 // FK to users
-  githubAccessToken: string;      // encrypted
-  githubRefreshToken: string | null;  // encrypted, nullable
+  userId: string; // FK to users
+  githubAccessToken: string; // encrypted
+  githubRefreshToken: string | null; // encrypted, nullable
   githubTokenExpiresAt: string | null; // ISO timestamp, for GitHub Apps
   updatedAt: string;
 }
@@ -156,12 +156,12 @@ interface IUserGitHubToken {
 // wikis table (simplified)
 interface IWiki {
   id: string;
-  userId: string;                 // owner
-  organizationId: string | null;  // future: team/org
+  userId: string; // owner
+  organizationId: string | null; // future: team/org
   repoOwner: string;
   repoName: string;
-  isPublic: boolean;              // shareable without auth
-  shareToken: string | null;      // optional: UUID for share links
+  isPublic: boolean; // shareable without auth
+  shareToken: string | null; // optional: UUID for share links
   createdAt: string;
   updatedAt: string;
 }
@@ -234,21 +234,27 @@ interface IWiki {
 
 ## Implementation Status
 
-> Last updated: 2026-02-25
+> Last updated: 2026-02-26
 
 ### What's Implemented
-- WorkOS env vars configured
-- DB schema for users table exists
+
+- WorkOS sign-in flow integrated with GitHub provider
+- Protected route middleware is active for dashboard and mutation APIs
+- Session/user resolution exists for authenticated app surfaces
+- GitHub token persistence and re-auth prompt paths are implemented
+- Baseline sign-out mechanism exists in auth flow
 
 ### What's Not Yet Implemented
-- Sign in/out flow
-- Middleware auth protection
-- GitHub token storage
-- Session management
-- All other auth features described in this PRD
+
+- Public wiki sharing with explicit share controls (`isPublic`/share token) is not complete
+- GDPR account deletion flow is not complete
+- Session-management UX hardening across all app-shell contexts remains incomplete
 
 ### Current Limitations
-- No authentication; app operates in unauthenticated mode only. Private repos not accessible.
+
+- Sign-out discoverability is inconsistent on dashboard/app-shell navigation and needs UX remediation.
+- Theme/navigation cohesion across authenticated surfaces causes session controls to feel hidden.
+- Auth core works, but surrounding UX does not yet meet production-quality expectations.
 
 ## 12. Milestones
 
