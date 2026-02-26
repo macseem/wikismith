@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
     "@wikismith/analyzer": "workspace:*",
     "@wikismith/db": "workspace:*",
     "@wikismith/generator": "workspace:*",

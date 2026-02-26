@@ -23,7 +23,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
 
   return (
     <nav className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-950 p-4 overflow-y-auto">
-      <Link href={basePath} className="block mb-6">
+      <Link href={basePath} prefetch className="block mb-6">
         <h2 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">
           {owner}/{repo}
         </h2>
@@ -34,6 +34,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
           <li>
             <Link
               href={basePath}
+              prefetch
               className={cn(
                 'block px-3 py-2 rounded-md text-sm transition-colors',
                 pathname === basePath
@@ -56,6 +57,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
             <li key={page.id}>
               <Link
                 href={href}
+                prefetch
                 className={cn(
                   'block px-3 py-2 rounded-md text-sm transition-colors',
                   isActive
@@ -74,6 +76,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
                       <li key={child.id}>
                         <Link
                           href={childHref}
+                          prefetch
                           className={cn(
                             'block px-3 py-1.5 rounded-md text-xs transition-colors',
                             childActive
