@@ -21,7 +21,8 @@ const getName = (firstName?: string | null, lastName?: string | null): string | 
 export const getSession = async (): Promise<AppSession | null> => {
   const allowE2EBypass =
     process.env['E2E_BYPASS_AUTH'] === '1' &&
-    (process.env['NODE_ENV'] !== 'production' || process.env['PLAYWRIGHT_E2E'] === '1');
+    process.env['PLAYWRIGHT_E2E'] === '1' &&
+    process.env['NODE_ENV'] !== 'production';
 
   if (allowE2EBypass) {
     return {

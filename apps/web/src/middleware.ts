@@ -16,7 +16,8 @@ const getReturnPathname = (request: NextRequest): string => {
 export default async function middleware(request: NextRequest) {
   const allowE2EBypass =
     process.env['E2E_BYPASS_AUTH'] === '1' &&
-    (process.env['NODE_ENV'] !== 'production' || process.env['PLAYWRIGHT_E2E'] === '1');
+    process.env['PLAYWRIGHT_E2E'] === '1' &&
+    process.env['NODE_ENV'] !== 'production';
 
   if (allowE2EBypass) {
     return NextResponse.next();

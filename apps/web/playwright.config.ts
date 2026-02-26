@@ -5,7 +5,7 @@ import { resolve } from 'path';
 config({ path: resolve(__dirname, '../../.env') });
 
 const PORT = 3099;
-const useProdServer = process.env['PLAYWRIGHT_USE_PROD_SERVER'] !== '0';
+const useProdServer = process.env['PLAYWRIGHT_USE_PROD_SERVER'] === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -30,13 +30,12 @@ export default defineConfig({
   ],
   webServer: {
     command: useProdServer
-      ? `pnpm next build && pnpm next start --port ${PORT}`
-      : `pnpm next dev --port ${PORT}`,
+      ? `NODE_ENV=production pnpm next build && NODE_ENV=production pnpm next start --port ${PORT}`
+      : `rm -f .next/dev/lock && NODE_ENV=development pnpm next dev --port ${PORT}`,
     port: PORT,
     timeout: useProdServer ? 300_000 : 60_000,
     reuseExistingServer: !process.env['CI'],
     env: {
-      NODE_ENV: useProdServer ? 'production' : 'development',
       OPENAI_API_KEY: process.env['OPENAI_API_KEY'] ?? '',
       DATABASE_URL: process.env['DATABASE_URL'] ?? '',
       E2E_BYPASS_AUTH: '1',

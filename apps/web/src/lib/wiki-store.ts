@@ -333,8 +333,23 @@ export const getWiki = async (
   return toStoredWiki(owner, repo, workosId, version, pages);
 };
 
-export const hasWiki = async (owner: string, repo: string, workosId?: string): Promise<boolean> =>
-  Boolean(await getWiki(owner, repo, workosId));
+export const hasWiki = async (owner: string, repo: string, workosId?: string): Promise<boolean> => {
+  const repository = await getRepository(owner, repo, workosId);
+  if (!repository) {
+    return false;
+  }
+
+  const { db, wikiVersions } = await loadDb();
+  const version = await db.query.wikiVersions.findFirst({
+    where: and(eq(wikiVersions.repositoryId, repository.id), eq(wikiVersions.status, 'ready')),
+    columns: {
+      id: true,
+    },
+    orderBy: [desc(wikiVersions.generatedAt), desc(wikiVersions.createdAt)],
+  });
+
+  return Boolean(version);
+};
 
 export const deleteWiki = async (
   owner: string,

@@ -10,7 +10,10 @@ import { incrementDailyGenerationCount } from '@/lib/auth/rate-limit';
 export const maxDuration = 300;
 
 const MAX_BODY_SIZE = 1024;
-const isPlaywrightE2E = process.env['PLAYWRIGHT_E2E'] === '1';
+const isPlaywrightE2E =
+  process.env['PLAYWRIGHT_E2E'] === '1' &&
+  process.env['E2E_BYPASS_AUTH'] === '1' &&
+  process.env['NODE_ENV'] !== 'production';
 
 interface GenerateBody {
   url?: string;
