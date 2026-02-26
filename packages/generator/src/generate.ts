@@ -1,5 +1,6 @@
 import type { IClassifiedFeatureTree, IWikiPage, ICitation } from '@wikismith/shared';
 import OpenAI from 'openai';
+import { normalizeGeneratedMarkdown } from './normalize-markdown';
 import { buildWikiPagePrompt, buildOverviewPrompt } from './prompts';
 
 export interface GenerateOptions {
@@ -22,7 +23,11 @@ const slugify = (text: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-const extractCitations = (content: string, repoFullName: string, commitSha: string): ICitation[] => {
+const extractCitations = (
+  content: string,
+  repoFullName: string,
+  commitSha: string,
+): ICitation[] => {
   const citations: ICitation[] = [];
   const citationRe = /\[`([^`]+?):(\d+)-(\d+)`\]\(([^)]+)\)/g;
 
@@ -68,7 +73,9 @@ export const generateWiki = async (
     temperature: 0.3,
   });
 
-  const overviewContent = overviewResponse.choices[0]?.message?.content ?? '';
+  const overviewContent = normalizeGeneratedMarkdown(
+    overviewResponse.choices[0]?.message?.content ?? '',
+  );
   pages.push({
     id: 'overview',
     featureId: 'overview',
@@ -98,7 +105,7 @@ export const generateWiki = async (
       temperature: 0.3,
     });
 
-    const content = response.choices[0]?.message?.content ?? '';
+    const content = normalizeGeneratedMarkdown(response.choices[0]?.message?.content ?? '');
     const citations = extractCitations(content, input.repoFullName, input.commitSha);
 
     pages.push({
@@ -130,7 +137,9 @@ export const generateWiki = async (
         temperature: 0.3,
       });
 
-      const childContent = childResponse.choices[0]?.message?.content ?? '';
+      const childContent = normalizeGeneratedMarkdown(
+        childResponse.choices[0]?.message?.content ?? '',
+      );
       const childCitations = extractCitations(childContent, input.repoFullName, input.commitSha);
 
       pages.push({

@@ -115,6 +115,21 @@ test.describe('Wiki generation E2E flow', () => {
     await expect(page.getByRole('banner').getByText(`${OWNER}/${REPO}`)).toBeVisible();
   });
 
+  test('wiki header exposes account menu for authenticated users', async ({ page }) => {
+    await page.goto(`/wiki/${OWNER}/${REPO}`);
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
+
+    const accountMenuTrigger = page.getByLabel('Account menu');
+    await expect(accountMenuTrigger).toBeVisible();
+    await accountMenuTrigger.click();
+
+    const openMenu = page.locator('details[open]');
+    await expect(openMenu.getByText('e2e@wikismith.local')).toBeVisible();
+    await expect(openMenu.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(openMenu.getByRole('link', { name: 'Settings' })).toBeVisible();
+    await expect(openMenu.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  });
+
   test('sidebar navigation works between pages', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
     await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
