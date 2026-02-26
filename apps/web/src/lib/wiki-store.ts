@@ -34,6 +34,17 @@ const logWarning = (event: string, data: Record<string, unknown>): void => {
   );
 };
 
+const trackPendingEmbeddingJob = (job: Promise<void>): void => {
+  if (!pendingEmbeddingJobs) {
+    return;
+  }
+
+  pendingEmbeddingJobs.add(job);
+  void job.finally(() => {
+    pendingEmbeddingJobs.delete(job);
+  });
+};
+
 export interface StoredWiki {
   generatedByWorkosId?: string;
   owner: string;
@@ -122,7 +133,8 @@ const startWikiEmbeddingPipeline = (params: {
   pages: IEmbeddingPagePayload[];
   replaceWikiEmbeddings: DbModule['replaceWikiEmbeddings'];
 }): void => {
-  const job = runWikiEmbeddingPipeline(params).catch((error) => {
+  const job = runWikiEmbeddingPipeline(params);
+  void job.catch((error) => {
     logError('wiki.embedding_pipeline_failed', {
       repositoryId: params.repositoryId,
       wikiVersionId: params.wikiVersionId,
@@ -130,12 +142,7 @@ const startWikiEmbeddingPipeline = (params: {
     });
   });
 
-  if (pendingEmbeddingJobs) {
-    pendingEmbeddingJobs.add(job);
-    void job.finally(() => {
-      pendingEmbeddingJobs.delete(job);
-    });
-  }
+  trackPendingEmbeddingJob(job);
 };
 
 const recoverMissingEmbeddings = (params: {
@@ -177,6 +184,8 @@ const recoverMissingEmbeddings = (params: {
       error: error instanceof Error ? error.message : String(error),
     });
   });
+
+  trackPendingEmbeddingJob(job);
 };
 
 export const waitForPendingEmbeddingJobsForTests = async (): Promise<void> => {

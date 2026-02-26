@@ -81,14 +81,18 @@ describe('embedChunks', () => {
     const originalApiKey = process.env['OPENAI_API_KEY'];
     delete process.env['OPENAI_API_KEY'];
 
-    await expect(
-      embedChunks({
-        pages: [{ pageId: 'page-1', title: 'Overview', content: '## Summary\nHello world' }],
-      }),
-    ).rejects.toThrow('OPENAI_API_KEY is required');
-
-    if (originalApiKey) {
-      process.env['OPENAI_API_KEY'] = originalApiKey;
+    try {
+      await expect(
+        embedChunks({
+          pages: [{ pageId: 'page-1', title: 'Overview', content: '## Summary\nHello world' }],
+        }),
+      ).rejects.toThrow('OPENAI_API_KEY is required');
+    } finally {
+      if (originalApiKey === undefined) {
+        delete process.env['OPENAI_API_KEY'];
+      } else {
+        process.env['OPENAI_API_KEY'] = originalApiKey;
+      }
     }
   });
 });

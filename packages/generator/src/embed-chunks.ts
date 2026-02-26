@@ -234,7 +234,8 @@ export const chunkWikiPages = (input: IChunkWikiPagesInput): IChunkedWikiSection
         if (lastChunk?.pageId === page.pageId) {
           const merged = `${lastChunk.chunkText}\n\n${decodeTokens(window)}`.trim();
           lastChunk.chunkText = merged;
-          lastChunk.tokenCount += window.length;
+          // Re-tokenize merged text so tokenCount stays accurate after separator + trim.
+          lastChunk.tokenCount = encode(merged).length;
           break;
         }
       }

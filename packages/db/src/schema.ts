@@ -11,13 +11,8 @@ import {
   date,
   index,
   uniqueIndex,
-  customType,
+  vector,
 } from 'drizzle-orm/pg-core';
-
-const vector = customType<{ data: number[]; driverData: string; config: { dimensions: number } }>({
-  dataType: (config) => `vector(${config?.dimensions ?? 1536})`,
-  toDriver: (value) => `[${value.join(',')}]`,
-});
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -56,16 +56,13 @@ const toMetadataRecord = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
-const toVectorSql = (embedding: number[]): SQL => {
+const toVectorLiteral = (embedding: number[]): string => {
   validateEmbedding(embedding);
 
-  const values = sql.join(
-    embedding.map((value) => sql`${value}`),
-    sql`, `,
-  );
-
-  return sql`ARRAY[${values}]::vector`;
+  return `[${embedding.join(',')}]`;
 };
+
+const toVectorSql = (embedding: number[]): SQL => sql`${toVectorLiteral(embedding)}::vector`;
 
 export const replaceWikiEmbeddings = async (input: IReplaceWikiEmbeddingsInput): Promise<void> => {
   await db.transaction(async (tx) => {
