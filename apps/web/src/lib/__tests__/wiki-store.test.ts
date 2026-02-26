@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockState = vi.hoisted(() => {
   const tables = {
@@ -23,11 +23,17 @@ const mockState = vi.hoisted(() => {
       createdAt: 'wikiPages.createdAt',
       id: 'wikiPages.id',
     },
+    wikiEmbeddings: {
+      wikiVersionId: 'wikiEmbeddings.wikiVersionId',
+      id: 'wikiEmbeddings.id',
+    },
   };
 
   return {
     tables,
     getStoredUserByWorkOSId: vi.fn(),
+    replaceWikiEmbeddings: vi.fn(),
+    embedChunks: vi.fn(),
     db: {
       insert: vi.fn(),
       update: vi.fn(),
@@ -43,6 +49,9 @@ const mockState = vi.hoisted(() => {
         },
         wikiPages: {
           findMany: vi.fn(),
+        },
+        wikiEmbeddings: {
+          findFirst: vi.fn(),
         },
       },
     },
@@ -62,9 +71,21 @@ vi.mock('@wikismith/db', () => ({
   repositories: mockState.tables.repositories,
   wikiVersions: mockState.tables.wikiVersions,
   wikiPages: mockState.tables.wikiPages,
+  wikiEmbeddings: mockState.tables.wikiEmbeddings,
+  replaceWikiEmbeddings: mockState.replaceWikiEmbeddings,
 }));
 
-import { deleteWiki, getWiki, saveWiki, type StoredWiki } from '../wiki-store';
+vi.mock('@wikismith/generator', () => ({
+  embedChunks: mockState.embedChunks,
+}));
+
+import {
+  deleteWiki,
+  getWiki,
+  saveWiki,
+  type StoredWiki,
+  waitForPendingEmbeddingJobsForTests,
+} from '../wiki-store';
 
 const setupDbMocks = () => {
   mockState.db.insert.mockImplementation((table: unknown) => {
@@ -133,9 +154,15 @@ const setupDbMocks = () => {
 describe('wiki-store DB persistence', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('OPENAI_API_KEY', '');
     mockState.captured.wikiVersionValues = null;
     mockState.captured.wikiPageValues = null;
     setupDbMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('persists wiki versions keyed by commit hash', async () => {
@@ -199,6 +226,71 @@ describe('wiki-store DB persistence', () => {
     const [overview, child] = mockState.captured.wikiPageValues!;
     expect(overview?.['wikiVersionId']).toBe('version-1');
     expect(child?.['parentPageId']).toBe(overview?.['id']);
+  });
+
+  it('starts embedding generation in the background after persisting pages', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    mockState.getStoredUserByWorkOSId.mockResolvedValue({ id: 'user-1' });
+    mockState.db.query.repositories.findFirst.mockResolvedValue({
+      id: 'repo-1',
+      defaultBranch: 'main',
+      trackedBranch: 'main',
+      userId: 'user-1',
+    });
+    mockState.db.query.wikiVersions.findFirst.mockResolvedValue(null);
+    mockState.embedChunks.mockResolvedValue([
+      {
+        pageId: 'persisted-page-1',
+        sectionHeading: 'Overview',
+        chunkText: 'chunk text',
+        chunkIndex: 0,
+        tokenCount: 3,
+        embedding: [0.1, 0.2, 0.3],
+      },
+    ]);
+
+    await saveWiki({
+      generatedByWorkosId: 'user_workos_1',
+      owner: 'octocat',
+      repo: 'hello-world',
+      branch: 'main',
+      commitSha: 'abc123def456',
+      featureTree: {
+        repoId: 'octocat/hello-world',
+        commitSha: 'abc123def456',
+        generatedAt: new Date().toISOString(),
+        features: [],
+      },
+      analysis: {
+        languages: { TypeScript: 10 },
+        frameworks: ['nextjs'],
+        fileCount: 10,
+      },
+      pages: [
+        {
+          id: 'overview',
+          featureId: 'overview',
+          slug: 'overview',
+          title: 'Overview',
+          content: 'Overview content',
+          citations: [],
+          parentPageId: null,
+          order: 0,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    });
+
+    await waitForPendingEmbeddingJobsForTests();
+
+    expect(mockState.embedChunks).toHaveBeenCalledTimes(1);
+
+    expect(mockState.replaceWikiEmbeddings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repositoryId: 'repo-1',
+        wikiVersionId: 'version-1',
+      }),
+    );
   });
 
   it('loads latest ready wiki from DB', async () => {
