@@ -100,6 +100,12 @@ Without a well-designed repository management dashboard, users cannot efficientl
 - **FR-044**: Status MUST be persisted in Neon and synced with the generation pipeline (job status).
 - **FR-045**: Status updates MAY use polling or real-time (SSE/WebSocket); polling acceptable for MVP.
 
+### 4.9 Dashboard App Shell & Account Actions
+
+- **FR-046**: The dashboard MUST expose a persistent and obvious account menu in the header on desktop and mobile.
+- **FR-047**: The account menu MUST include Sign out and complete sign-out flow in <=2 clicks.
+- **FR-048**: Dashboard header/navigation styling MUST remain visually and behaviorally consistent with wiki app-shell patterns.
+
 ## 5. Non-Functional Requirements (with NFR-xxx IDs)
 
 - **NFR-001**: Repo list (cached) MUST load within 2 seconds p95 when cache hit; within 5 seconds p95 on cache miss (GitHub API fetch).
@@ -170,6 +176,7 @@ Without a well-designed repository management dashboard, users cannot efficientl
 - [ ] Delete confirmation prevents accidental deletion
 - [ ] Responsive across breakpoints
 - [ ] Keyboard navigation and focus management
+- [ ] Account menu exposes Sign out on dashboard and mobile
 
 ## 7. Technical Considerations
 
@@ -240,6 +247,7 @@ Without a well-designed repository management dashboard, users cannot efficientl
 - **Repository Ingestion**: Generation pipeline consumes repo URL/ref; ingestion must support authenticated requests for private repos. See `repository-ingestion-discovery-prd.md`.
 - **Wiki Content Generation**: Generation pipeline produces wiki; status updates flow back to dashboard. See `wiki-content-generation-prd.md`.
 - **Wiki UI & Navigation**: Generation flow UX (progress, errors) defined there. See `wiki-ui-navigation-prd.md`.
+- **Wiki UI/UX Polish**: Shared app-shell/navigation/theme consistency tracked in `wiki-ui-ux-polish-prd.md`.
 - **Deployment**: Token encryption key in env; Neon connection. See `deployment-infrastructure-prd.md`.
 - **Shared types**: `packages/shared` must define `Repo`, `WikiStatus`, `RepoSettings` (or equivalent).
 

@@ -278,9 +278,10 @@ Additionally, wiki generation takes time (minutes for large repos). Users need c
 
 ## Implementation Status
 
-> Last updated: 2026-02-25
+> Last updated: 2026-02-26
 
 ### What's Implemented
+
 - Homepage with repo URL input, feature cards
 - SSE streaming progress: ingesting → analyzing → classifying → generating (with page counts)
 - Progress bar and stage labels during generation
@@ -293,6 +294,7 @@ Additionally, wiki generation takes time (minutes for large repos). Users need c
 - Breadcrumbs: partial (header shows WikiSmith / owner/repo, not full breadcrumb trail)
 
 ### What's Not Yet Implemented
+
 - Table of Contents (ToC)
 - Search (Cmd+K)
 - Scroll-spy
@@ -304,7 +306,16 @@ Additionally, wiki generation takes time (minutes for large repos). Users need c
 - Keyboard navigation
 
 ### Current Limitations
+
 - Breadcrumbs show only WikiSmith / owner/repo, not full feature path. No ToC or search yet.
+- In-session wiki navigation still exhibits hard-reload behavior in places; transitions are not consistently SPA-smooth.
+- Sidebar/UI state continuity is incomplete (expansion/scroll/persistent active context).
+- Visual quality and theme consistency need a dedicated polish pass across wiki + dashboard surfaces.
+- Dashboard account navigation does not yet provide a clear, always-available sign-out affordance.
+
+### Rebaseline Note
+
+- A dedicated remediation plan is tracked in `features/wiki-ui-ux-polish-prd.md` to address navigation stability, app-shell UX, theme consistency, and visual polish before additional feature expansion.
 
 ## 12. Milestones
 
