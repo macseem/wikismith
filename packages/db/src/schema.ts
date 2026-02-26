@@ -11,7 +11,13 @@ import {
   date,
   index,
   uniqueIndex,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+const vector = customType<{ data: number[]; driverData: string; config: { dimensions: number } }>({
+  dataType: (config) => `vector(${config?.dimensions ?? 1536})`,
+  toDriver: (value) => `[${value.join(',')}]`,
+});
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -139,6 +145,44 @@ export const wikiPages = pgTable('wiki_pages', {
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const wikiEmbeddings = pgTable(
+  'wiki_embeddings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repositoryId: uuid('repository_id')
+      .references(() => repositories.id, { onDelete: 'cascade' })
+      .notNull(),
+    wikiVersionId: uuid('wiki_version_id')
+      .references(() => wikiVersions.id, { onDelete: 'cascade' })
+      .notNull(),
+    wikiPageId: uuid('wiki_page_id')
+      .references(() => wikiPages.id, { onDelete: 'cascade' })
+      .notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    sectionHeading: text('section_heading').notNull(),
+    chunkText: text('chunk_text').notNull(),
+    embedding: vector('embedding', { dimensions: 1536 }).notNull(),
+    metadata: jsonb('metadata')
+      .$type<{
+        page_id: string;
+        section_heading: string;
+        repo_id: string;
+        wiki_version_id: string;
+        chunk_text: string;
+      }>()
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    wikiVersionIndex: index('wiki_embeddings_wiki_version_idx').on(table.wikiVersionId),
+    wikiPageIndex: index('wiki_embeddings_wiki_page_idx').on(table.wikiPageId),
+    embeddingHnswIndex: index('wiki_embeddings_embedding_hnsw_idx').using(
+      'hnsw',
+      table.embedding.op('vector_cosine_ops'),
+    ),
+  }),
+);
 
 export const generationJobs = pgTable('generation_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),

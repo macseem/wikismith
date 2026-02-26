@@ -4,6 +4,36 @@ import { getStoredUserByWorkOSId } from '@/lib/auth/user-store';
 
 type DbModule = typeof import('@wikismith/db');
 
+interface IEmbeddingPagePayload {
+  pageId: string;
+  title: string;
+  content: string;
+}
+
+const shouldTrackPendingEmbeddingJobs =
+  process.env['NODE_ENV'] === 'test' || process.env['VITEST'] === 'true';
+const pendingEmbeddingJobs = shouldTrackPendingEmbeddingJobs ? new Set<Promise<void>>() : null;
+
+const logError = (event: string, data: Record<string, unknown>): void => {
+  process.stderr.write(
+    `${JSON.stringify({
+      level: 'error',
+      event,
+      ...data,
+    })}\n`,
+  );
+};
+
+const logWarning = (event: string, data: Record<string, unknown>): void => {
+  process.stderr.write(
+    `${JSON.stringify({
+      level: 'warn',
+      event,
+      ...data,
+    })}\n`,
+  );
+};
+
 export interface StoredWiki {
   generatedByWorkosId?: string;
   owner: string;
@@ -44,6 +74,117 @@ const getUserId = async (workosId?: string): Promise<string | null> => {
 
   const user = await getStoredUserByWorkOSId(workosId);
   return user?.id ?? null;
+};
+
+const runWikiEmbeddingPipeline = async (params: {
+  repositoryId: string;
+  wikiVersionId: string;
+  pages: IEmbeddingPagePayload[];
+  replaceWikiEmbeddings: DbModule['replaceWikiEmbeddings'];
+}): Promise<void> => {
+  if (!process.env['OPENAI_API_KEY']) {
+    if (process.env['NODE_ENV'] !== 'test') {
+      logWarning('wiki.embedding_pipeline_skipped_missing_openai_key', {
+        repositoryId: params.repositoryId,
+        wikiVersionId: params.wikiVersionId,
+      });
+    }
+
+    return;
+  }
+
+  const { embedChunks } = await import('@wikismith/generator');
+  const embeddedChunks = await embedChunks({ pages: params.pages });
+
+  await params.replaceWikiEmbeddings({
+    repositoryId: params.repositoryId,
+    wikiVersionId: params.wikiVersionId,
+    chunks: embeddedChunks.map((chunk) => ({
+      wikiPageId: chunk.pageId,
+      chunkIndex: chunk.chunkIndex,
+      sectionHeading: chunk.sectionHeading,
+      chunkText: chunk.chunkText,
+      embedding: chunk.embedding,
+      metadata: {
+        page_id: chunk.pageId,
+        section_heading: chunk.sectionHeading,
+        repo_id: params.repositoryId,
+        wiki_version_id: params.wikiVersionId,
+        chunk_text: chunk.chunkText,
+      },
+    })),
+  });
+};
+
+const startWikiEmbeddingPipeline = (params: {
+  repositoryId: string;
+  wikiVersionId: string;
+  pages: IEmbeddingPagePayload[];
+  replaceWikiEmbeddings: DbModule['replaceWikiEmbeddings'];
+}): void => {
+  const job = runWikiEmbeddingPipeline(params).catch((error) => {
+    logError('wiki.embedding_pipeline_failed', {
+      repositoryId: params.repositoryId,
+      wikiVersionId: params.wikiVersionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  if (pendingEmbeddingJobs) {
+    pendingEmbeddingJobs.add(job);
+    void job.finally(() => {
+      pendingEmbeddingJobs.delete(job);
+    });
+  }
+};
+
+const recoverMissingEmbeddings = (params: {
+  db: DbModule['db'];
+  wikiEmbeddings: DbModule['wikiEmbeddings'];
+  replaceWikiEmbeddings: DbModule['replaceWikiEmbeddings'];
+  repositoryId: string;
+  wikiVersionId: string;
+  pages: IEmbeddingPagePayload[];
+}): void => {
+  if (!process.env['OPENAI_API_KEY']) {
+    return;
+  }
+
+  const job = (async () => {
+    const existingEmbedding = await params.db.query.wikiEmbeddings.findFirst({
+      where: eq(params.wikiEmbeddings.wikiVersionId, params.wikiVersionId),
+      columns: {
+        id: true,
+      },
+    });
+
+    if (existingEmbedding) {
+      return;
+    }
+
+    startWikiEmbeddingPipeline({
+      repositoryId: params.repositoryId,
+      wikiVersionId: params.wikiVersionId,
+      pages: params.pages,
+      replaceWikiEmbeddings: params.replaceWikiEmbeddings,
+    });
+  })();
+
+  void job.catch((error) => {
+    logError('wiki.embedding_recovery_failed', {
+      repositoryId: params.repositoryId,
+      wikiVersionId: params.wikiVersionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+};
+
+export const waitForPendingEmbeddingJobsForTests = async (): Promise<void> => {
+  if (!pendingEmbeddingJobs || pendingEmbeddingJobs.size === 0) {
+    return;
+  }
+
+  await Promise.allSettled(Array.from(pendingEmbeddingJobs));
 };
 
 const toStoredWiki = (
@@ -178,7 +319,7 @@ export const saveWiki = async (wiki: StoredWiki): Promise<void> => {
     throw new Error('generatedByWorkosId is required to persist wiki data.');
   }
 
-  const { db, repositories, wikiVersions, wikiPages } = await loadDb();
+  const { db, repositories, wikiVersions, wikiPages, replaceWikiEmbeddings } = await loadDb();
   const user = await getStoredUserByWorkOSId(wiki.generatedByWorkosId);
 
   if (!user) {
@@ -292,32 +433,43 @@ export const saveWiki = async (wiki: StoredWiki): Promise<void> => {
 
   await db.delete(wikiPages).where(eq(wikiPages.wikiVersionId, version.id));
 
-  await db.insert(wikiPages).values(
-    wiki.pages.map((page) => {
-      const id = pageIdMap.get(page.id);
-      const parentPageId = page.parentPageId ? pageIdMap.get(page.parentPageId) : null;
+  const pagesToPersist = wiki.pages.map((page) => {
+    const id = pageIdMap.get(page.id);
+    const parentPageId = page.parentPageId ? pageIdMap.get(page.parentPageId) : null;
 
-      if (!id) {
-        throw new Error(`Wiki page id mapping is missing for: ${page.id}`);
-      }
+    if (!id) {
+      throw new Error(`Wiki page id mapping is missing for: ${page.id}`);
+    }
 
-      if (page.parentPageId && !parentPageId) {
-        throw new Error(`Wiki page parent reference is invalid: ${page.parentPageId}`);
-      }
+    if (page.parentPageId && !parentPageId) {
+      throw new Error(`Wiki page parent reference is invalid: ${page.parentPageId}`);
+    }
 
-      return {
-        id,
-        wikiVersionId: version.id,
-        featureId: page.featureId,
-        slug: page.slug,
-        title: page.title,
-        content: page.content,
-        citations: page.citations,
-        parentPageId,
-        sortOrder: page.order,
-      };
-    }),
-  );
+    return {
+      id,
+      wikiVersionId: version.id,
+      featureId: page.featureId,
+      slug: page.slug,
+      title: page.title,
+      content: page.content,
+      citations: page.citations,
+      parentPageId,
+      sortOrder: page.order,
+    };
+  });
+
+  await db.insert(wikiPages).values(pagesToPersist);
+
+  startWikiEmbeddingPipeline({
+    repositoryId: repository.id,
+    wikiVersionId: version.id,
+    pages: pagesToPersist.map((page) => ({
+      pageId: page.id,
+      title: page.title,
+      content: page.content,
+    })),
+    replaceWikiEmbeddings,
+  });
 };
 
 export const getWiki = async (
@@ -330,12 +482,25 @@ export const getWiki = async (
     return undefined;
   }
 
-  const { db, wikiVersions, wikiPages } = await loadDb();
+  const { db, wikiVersions, wikiPages, wikiEmbeddings, replaceWikiEmbeddings } = await loadDb();
 
   const wikiData = await getLatestReadyWikiData(db, wikiVersions, wikiPages, repository.id);
   if (!wikiData) {
     return undefined;
   }
+
+  recoverMissingEmbeddings({
+    db,
+    wikiEmbeddings,
+    replaceWikiEmbeddings,
+    repositoryId: repository.id,
+    wikiVersionId: wikiData.version.id,
+    pages: wikiData.pages.map((page) => ({
+      pageId: page.id,
+      title: page.title,
+      content: page.content,
+    })),
+  });
 
   return toStoredWiki(owner, repo, workosId, wikiData.version, wikiData.pages);
 };
@@ -389,7 +554,15 @@ export const getPublicWikiByShareToken = async (
   shareToken: string,
   options: PublicWikiLookupOptions = {},
 ): Promise<StoredWiki | undefined> => {
-  const { db, wikiShares, repositories, wikiVersions, wikiPages } = await loadDb();
+  const {
+    db,
+    wikiShares,
+    repositories,
+    wikiVersions,
+    wikiPages,
+    wikiEmbeddings,
+    replaceWikiEmbeddings,
+  } = await loadDb();
 
   const share = await db.query.wikiShares.findFirst({
     where: and(eq(wikiShares.shareToken, shareToken), eq(wikiShares.isPublic, true)),
@@ -423,6 +596,19 @@ export const getPublicWikiByShareToken = async (
   if (!wikiData) {
     return undefined;
   }
+
+  recoverMissingEmbeddings({
+    db,
+    wikiEmbeddings,
+    replaceWikiEmbeddings,
+    repositoryId: share.repositoryId,
+    wikiVersionId: wikiData.version.id,
+    pages: wikiData.pages.map((page) => ({
+      pageId: page.id,
+      title: page.title,
+      content: page.content,
+    })),
+  });
 
   return toStoredWiki(
     repository.owner,

@@ -43,6 +43,13 @@
       "when": 1772121431929,
       "tag": "0005_watery_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772129611273,
+      "tag": "0006_easy_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }
