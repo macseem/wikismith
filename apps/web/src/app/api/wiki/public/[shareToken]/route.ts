@@ -17,6 +17,10 @@ const getRequesterKey = (request: Request): string | null => {
     return realIp;
   }
 
+  if (process.env['NODE_ENV'] !== 'production') {
+    return 'local-development';
+  }
+
   return null;
 };
 
@@ -32,23 +36,32 @@ export const GET = async (
   { params }: { params: Promise<{ shareToken: string }> },
 ) => {
   const requesterKey = getRequesterKey(request);
-  if (requesterKey) {
-    const rateLimit = await incrementPublicWikiRequestCount(requesterKey);
-    if (!rateLimit.allowed) {
-      return jsonResponse(
-        apiContracts.wiki.public.getByShareToken.error,
-        {
-          error: 'Too many requests',
-          code: 'RATE_LIMITED',
+  if (!requesterKey) {
+    return jsonResponse(
+      apiContracts.wiki.public.getByShareToken.error,
+      {
+        error: 'Unable to determine client address',
+        code: 'MISSING_CLIENT_IP',
+      },
+      { status: 400 },
+    );
+  }
+
+  const rateLimit = await incrementPublicWikiRequestCount(requesterKey);
+  if (!rateLimit.allowed) {
+    return jsonResponse(
+      apiContracts.wiki.public.getByShareToken.error,
+      {
+        error: 'Too many requests',
+        code: 'RATE_LIMITED',
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfterSeconds),
         },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(rateLimit.retryAfterSeconds),
-          },
-        },
-      );
-    }
+      },
+    );
   }
 
   const parsedParams = apiContracts.wiki.public.getByShareToken.params.safeParse(await params);
