@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { signOut } from '@workos-inc/authkit-nextjs';
 import { Button } from '@/components/ui/button';
+import { LiveWikiLink } from '@/components/navigation/live-wiki-link';
 import type { AppSession } from '@/lib/auth/session';
 import { getGitHubSignInUrl } from '@/lib/auth/sign-in-url';
 
@@ -20,14 +21,20 @@ export const AuthNav = ({ session, returnPathname = '/dashboard', className }: A
     }
 
     return (
-      <Button asChild size="sm" className={className}>
-        <Link href={signInUrl}>Sign in</Link>
-      </Button>
+      <div
+        className={className ? `flex items-center gap-2 ${className}` : 'flex items-center gap-2'}
+      >
+        <LiveWikiLink />
+        <Button asChild size="sm">
+          <Link href={signInUrl}>Sign in</Link>
+        </Button>
+      </div>
     );
   }
 
   return (
     <div className={className ? `flex items-center gap-2 ${className}` : 'flex items-center gap-2'}>
+      <LiveWikiLink />
       <Button asChild size="sm" variant="secondary">
         <Link href="/dashboard">Dashboard</Link>
       </Button>
