@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { StoredWikiContract } from '@wikismith/contracts';
 import type { IWikiPage } from '@wikismith/shared';
 import { Badge } from '@/components/ui/badge';
+import { LiveWikiLink } from '@/components/navigation/live-wiki-link';
 import { WikiSidebar } from '@/components/wiki/sidebar';
 import { WikiPageContent } from '@/components/wiki/page-content';
 
@@ -48,6 +49,7 @@ export const WikiReaderShell = ({
             {wiki.owner}/{wiki.repo}
           </span>
           <div className="ml-auto flex items-center justify-end gap-2 flex-wrap">
+            <LiveWikiLink />
             {headerActions}
             {showMetrics &&
               wiki.analysis.frameworks.map((framework) => (

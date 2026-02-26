@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { RepoInput } from '@/components/home/repo-input';
 import { RepositoryCardActions } from '@/components/dashboard/repository-card-actions';
+import { LiveWikiLink } from '@/components/navigation/live-wiki-link';
 import { AccountMenu } from '@/components/auth/account-menu';
 import { getSession } from '@/lib/auth/session';
 import { getDailyGenerationUsage } from '@/lib/auth/rate-limit';
@@ -182,7 +183,10 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
             </p>
           </div>
 
-          <AccountMenu session={session} />
+          <div className="flex items-center gap-2">
+            <LiveWikiLink />
+            <AccountMenu session={session} />
+          </div>
         </header>
 
         <Card className="p-5 bg-zinc-900/70 border-zinc-800 space-y-4">
