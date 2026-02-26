@@ -148,6 +148,29 @@ test.describe('Wiki generation E2E flow', () => {
     await page.waitForURL(`/wiki/${OWNER}/${REPO}`, { timeout: 15_000 });
   });
 
+  test('sidebar expansion state persists across in-app route changes', async ({ page }) => {
+    await page.goto(`/wiki/${OWNER}/${REPO}`);
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
+
+    const toggleButtons = page.getByRole('button', { name: /^(Collapse|Expand) / });
+    const toggleCount = await toggleButtons.count();
+    test.skip(toggleCount === 0, 'No expandable sidebar groups for this wiki.');
+
+    const firstToggle = toggleButtons.first();
+    const expanded = await firstToggle.getAttribute('aria-expanded');
+    if (expanded !== 'false') {
+      await firstToggle.click();
+    }
+
+    await expect(firstToggle).toHaveAttribute('aria-expanded', 'false');
+
+    const firstFeatureLink = page.locator('nav ul').getByRole('link').nth(1);
+    await firstFeatureLink.click();
+    await page.waitForURL(/\/wiki\/[^/]+\/[^/]+\/.+/, { timeout: 15_000 });
+
+    await expect(firstToggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   test('wiki page renders markdown content', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
     await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
