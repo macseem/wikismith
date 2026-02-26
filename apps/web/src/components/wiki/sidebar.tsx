@@ -16,8 +16,9 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
   const basePath = `/wiki/${owner}/${repo}`;
 
   const overview = pages.find((p) => p.slug === 'overview');
+  const overviewId = overview?.id ?? null;
   const topLevel = pages
-    .filter((p) => p.parentPageId === 'overview')
+    .filter((p) => p.parentPageId === overviewId)
     .sort((a, b) => a.order - b.order);
 
   return (

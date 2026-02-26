@@ -112,9 +112,7 @@ test.describe('Wiki generation E2E flow', () => {
     const sidebarLinks = sidebar.getByRole('link');
     expect(await sidebarLinks.count()).toBeGreaterThan(1);
 
-    await expect(
-      page.getByRole('banner').getByText(`${OWNER}/${REPO}`),
-    ).toBeVisible();
+    await expect(page.getByRole('banner').getByText(`${OWNER}/${REPO}`)).toBeVisible();
   });
 
   test('sidebar navigation works between pages', async ({ page }) => {

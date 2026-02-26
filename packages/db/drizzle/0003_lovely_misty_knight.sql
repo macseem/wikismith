@@ -1,0 +1,1 @@
+CREATE INDEX "wiki_versions_repository_status_generated_at_idx" ON "wiki_versions" USING btree ("repository_id","status","generated_at");

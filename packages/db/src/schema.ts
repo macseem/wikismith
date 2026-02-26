@@ -9,6 +9,7 @@ import {
   uuid,
   varchar,
   date,
+  index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -58,22 +59,38 @@ export const repositories = pgTable(
   }),
 );
 
-export const wikiVersions = pgTable('wiki_versions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  repositoryId: uuid('repository_id')
-    .references(() => repositories.id, { onDelete: 'cascade' })
-    .notNull(),
-  commitSha: varchar('commit_sha', { length: 40 }).notNull(),
-  branch: text('branch').notNull(),
-  status: text('status', { enum: ['pending', 'generating', 'ready', 'failed'] })
-    .default('pending')
-    .notNull(),
-  errorMessage: text('error_message'),
-  featureCount: integer('feature_count').default(0).notNull(),
-  pageCount: integer('page_count').default(0).notNull(),
-  generatedAt: timestamp('generated_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const wikiVersions = pgTable(
+  'wiki_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repositoryId: uuid('repository_id')
+      .references(() => repositories.id, { onDelete: 'cascade' })
+      .notNull(),
+    commitSha: varchar('commit_sha', { length: 40 }).notNull(),
+    branch: text('branch').notNull(),
+    status: text('status', { enum: ['pending', 'generating', 'ready', 'failed'] })
+      .default('pending')
+      .notNull(),
+    errorMessage: text('error_message'),
+    featureTree: jsonb('feature_tree').$type<Record<string, unknown> | null>(),
+    analysis: jsonb('analysis').$type<Record<string, unknown> | null>(),
+    featureCount: integer('feature_count').default(0).notNull(),
+    pageCount: integer('page_count').default(0).notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    repositoryCommitUnique: uniqueIndex('wiki_versions_repository_commit_unique').on(
+      table.repositoryId,
+      table.commitSha,
+    ),
+    repositoryStatusGeneratedAtIndex: index('wiki_versions_repository_status_generated_at_idx').on(
+      table.repositoryId,
+      table.status,
+      table.generatedAt,
+    ),
+  }),
+);
 
 export const wikiPages = pgTable('wiki_pages', {
   id: uuid('id').primaryKey().defaultRandom(),
