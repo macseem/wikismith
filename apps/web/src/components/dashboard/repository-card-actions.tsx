@@ -38,14 +38,50 @@ export const RepositoryCardActions = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSharingLoading, setIsSharingLoading] = useState(false);
+  const [isSharingSaving, setIsSharingSaving] = useState(false);
+  const [isRotatingShare, setIsRotatingShare] = useState(false);
   const [settingsBranch, setSettingsBranch] = useState(trackedBranch ?? defaultBranch);
   const [settingsAutoUpdate, setSettingsAutoUpdate] = useState(autoUpdate);
+  const [sharingLoaded, setSharingLoaded] = useState(false);
+  const [sharingPublic, setSharingPublic] = useState(false);
+  const [sharingEmbedEnabled, setSharingEmbedEnabled] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionPath, setActionPath] = useState<string | null>(null);
   const [actionLabel, setActionLabel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const buildPublicLink = (token: string): string => {
+    if (typeof window === 'undefined') {
+      return `/s/${token}`;
+    }
+
+    return `${window.location.origin}/s/${token}`;
+  };
+
+  const buildEmbedLink = (token: string): string => {
+    if (typeof window === 'undefined') {
+      return `/embed/${token}`;
+    }
+
+    return `${window.location.origin}/embed/${token}`;
+  };
+
+  const buildIframeSnippet = (token: string): string =>
+    `<iframe src="${buildEmbedLink(token)}" width="100%" height="720" style="border:0;" loading="lazy"></iframe>`;
+
+  const copyToClipboard = async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setNotice(successMessage);
+      setError(null);
+    } catch {
+      setError('Unable to copy to clipboard.');
+    }
+  };
 
   const repoUrl = `https://github.com/${fullName}`;
 
@@ -104,6 +140,87 @@ export const RepositoryCardActions = ({
       setError(null);
     } catch {
       setError('Failed to load branches');
+    }
+  };
+
+  const loadSharingSettings = async () => {
+    if (sharingLoaded || status !== 'ready') {
+      return;
+    }
+
+    setIsSharingLoading(true);
+    setError(null);
+
+    try {
+      const settings = await apiClient.getRepoSharingSettings(owner, repo);
+      setSharingPublic(settings.isPublic);
+      setSharingEmbedEnabled(settings.embedEnabled);
+      setShareToken(settings.shareToken);
+      setSharingLoaded(true);
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        handleRouteError(error.payload, 'Failed to load sharing settings');
+      } else {
+        setError('Failed to load sharing settings');
+      }
+    } finally {
+      setIsSharingLoading(false);
+    }
+  };
+
+  const saveSharingSettings = async () => {
+    setIsSharingSaving(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const settings = await apiClient.updateRepoSharingSettings(owner, repo, {
+        isPublic: sharingPublic,
+        embedEnabled: sharingEmbedEnabled,
+      });
+      setSharingPublic(settings.isPublic);
+      setSharingEmbedEnabled(settings.embedEnabled);
+      setShareToken(settings.shareToken);
+      setNotice('Sharing settings saved');
+      setSharingLoaded(true);
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        handleRouteError(error.payload, 'Failed to save sharing settings');
+      } else {
+        setError('Failed to save sharing settings');
+      }
+    } finally {
+      setIsSharingSaving(false);
+    }
+  };
+
+  const rotateSharingLink = async () => {
+    const confirmed = globalThis.confirm(
+      'Rotate shared link? Existing shared and embedded links will stop working immediately.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsRotatingShare(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const settings = await apiClient.rotateRepoSharingToken(owner, repo);
+      setSharingPublic(settings.isPublic);
+      setSharingEmbedEnabled(settings.embedEnabled);
+      setShareToken(settings.shareToken);
+      setNotice('Sharing link rotated');
+      setSharingLoaded(true);
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        handleRouteError(error.payload, 'Failed to rotate sharing link');
+      } else {
+        setError('Failed to rotate sharing link');
+      }
+    } finally {
+      setIsRotatingShare(false);
     }
   };
 
@@ -282,6 +399,134 @@ export const RepositoryCardActions = ({
           </Button>
         </div>
       </details>
+
+      {status === 'ready' && (
+        <details
+          className="rounded-md border border-zinc-800 p-3"
+          onToggle={(event) => {
+            const details = event.currentTarget as HTMLDetailsElement;
+            if (details.open) {
+              void loadSharingSettings();
+            }
+          }}
+        >
+          <summary className="cursor-pointer text-sm text-zinc-300">Sharing</summary>
+
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={sharingPublic}
+                onChange={(event) => setSharingPublic(event.target.checked)}
+                className="h-4 w-4 rounded border-zinc-700 bg-zinc-900"
+              />
+              Public wiki (shareable link)
+            </label>
+
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                checked={sharingEmbedEnabled}
+                onChange={(event) => setSharingEmbedEnabled(event.target.checked)}
+                className="h-4 w-4 rounded border-zinc-700 bg-zinc-900"
+              />
+              Allow embeds
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={saveSharingSettings}
+                disabled={isSharingSaving || isSharingLoading}
+              >
+                {isSharingSaving ? 'Saving...' : 'Save sharing'}
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={rotateSharingLink}
+                disabled={isRotatingShare || isSharingLoading}
+              >
+                {isRotatingShare ? 'Rotating...' : 'Rotate link'}
+              </Button>
+            </div>
+
+            {isSharingLoading && (
+              <p className="text-xs text-zinc-500">Loading sharing settings...</p>
+            )}
+
+            {sharingLoaded && shareToken && (
+              <div className="space-y-2">
+                <label htmlFor={`${fullName}-public-link`} className="text-xs text-zinc-400">
+                  Public link
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id={`${fullName}-public-link`}
+                    readOnly
+                    value={buildPublicLink(shareToken)}
+                    className="h-9 bg-zinc-900 border-zinc-700"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      copyToClipboard(buildPublicLink(shareToken), 'Public link copied')
+                    }
+                    disabled={!sharingPublic}
+                  >
+                    Copy
+                  </Button>
+                </div>
+
+                <label htmlFor={`${fullName}-embed-link`} className="text-xs text-zinc-400">
+                  Embed URL
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id={`${fullName}-embed-link`}
+                    readOnly
+                    value={buildEmbedLink(shareToken)}
+                    className="h-9 bg-zinc-900 border-zinc-700"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(buildEmbedLink(shareToken), 'Embed URL copied')}
+                    disabled={!sharingPublic || !sharingEmbedEnabled}
+                  >
+                    Copy
+                  </Button>
+                </div>
+
+                <label htmlFor={`${fullName}-embed-snippet`} className="text-xs text-zinc-400">
+                  Iframe snippet
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id={`${fullName}-embed-snippet`}
+                    readOnly
+                    value={buildIframeSnippet(shareToken)}
+                    className="h-9 bg-zinc-900 border-zinc-700"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      copyToClipboard(buildIframeSnippet(shareToken), 'Embed snippet copied')
+                    }
+                    disabled={!sharingPublic || !sharingEmbedEnabled}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
 
       {notice && <p className="text-xs text-emerald-400">{notice}</p>}
 

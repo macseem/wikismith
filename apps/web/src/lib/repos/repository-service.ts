@@ -36,6 +36,13 @@ export interface RepositoryDashboardData {
   };
 }
 
+export interface RepositorySharingSettings {
+  isPublic: boolean;
+  embedEnabled: boolean;
+  shareToken: string;
+  tokenRotatedAt: string | null;
+}
+
 export interface GetRepositoryDashboardOptions {
   workosUserId: string;
   cursor?: string | null;
@@ -211,6 +218,106 @@ const normalizeWikiStatus = (status: string): WikiStatus => {
 
   return 'generating';
 };
+
+const getOwnedRepository = async (workosUserId: string, owner: string, repo: string) => {
+  const [user, { db, repositories }] = await Promise.all([
+    getStoredUserByWorkOSId(workosUserId),
+    loadDb(),
+  ]);
+
+  if (!user) {
+    throw new AppError('Authenticated user record is missing.', 'USER_NOT_FOUND', 404);
+  }
+
+  const repository = await db.query.repositories.findFirst({
+    where: and(
+      eq(repositories.userId, user.id),
+      eq(repositories.owner, owner),
+      eq(repositories.name, repo),
+    ),
+    columns: {
+      id: true,
+    },
+  });
+
+  if (!repository) {
+    throw new AppError(
+      'Repository is not available in your dashboard yet. Refresh from GitHub and try again.',
+      'REPO_NOT_FOUND',
+      404,
+    );
+  }
+
+  return {
+    userId: user.id,
+    repositoryId: repository.id,
+  };
+};
+
+const getOrCreateRepositoryShare = async (workosUserId: string, owner: string, repo: string) => {
+  const [{ db, wikiShares }, ownedRepository] = await Promise.all([
+    loadDb(),
+    getOwnedRepository(workosUserId, owner, repo),
+  ]);
+
+  let share = await db.query.wikiShares.findFirst({
+    where: eq(wikiShares.repositoryId, ownedRepository.repositoryId),
+    columns: {
+      id: true,
+      isPublic: true,
+      shareToken: true,
+      embedEnabled: true,
+      tokenRotatedAt: true,
+    },
+  });
+
+  if (!share) {
+    await db
+      .insert(wikiShares)
+      .values({
+        repositoryId: ownedRepository.repositoryId,
+        isPublic: false,
+        embedEnabled: false,
+        shareToken: crypto.randomUUID(),
+        updatedAt: new Date(),
+      })
+      .onConflictDoNothing({
+        target: [wikiShares.repositoryId],
+      });
+
+    share = await db.query.wikiShares.findFirst({
+      where: eq(wikiShares.repositoryId, ownedRepository.repositoryId),
+      columns: {
+        id: true,
+        isPublic: true,
+        shareToken: true,
+        embedEnabled: true,
+        tokenRotatedAt: true,
+      },
+    });
+  }
+
+  if (!share) {
+    throw new AppError('Failed to initialize wiki sharing settings.', 'SHARING_INIT_FAILED', 500);
+  }
+
+  return {
+    repositoryId: ownedRepository.repositoryId,
+    share,
+  };
+};
+
+const toSharingSettings = (share: {
+  isPublic: boolean;
+  embedEnabled: boolean;
+  shareToken: string;
+  tokenRotatedAt: Date | null;
+}): RepositorySharingSettings => ({
+  isPublic: share.isPublic,
+  embedEnabled: share.embedEnabled,
+  shareToken: share.shareToken,
+  tokenRotatedAt: share.tokenRotatedAt ? share.tokenRotatedAt.toISOString() : null,
+});
 
 const syncRepositoriesForUser = async (
   db: DbModule['db'],
@@ -491,4 +598,96 @@ export const deleteRepositoryWiki = async (
   return {
     removedFromCache: await deleteWiki(owner, repo, workosUserId),
   };
+};
+
+export const getRepositorySharingSettings = async (
+  workosUserId: string,
+  owner: string,
+  repo: string,
+): Promise<RepositorySharingSettings> => {
+  const { share } = await getOrCreateRepositoryShare(workosUserId, owner, repo);
+  return toSharingSettings(share);
+};
+
+export const updateRepositorySharingSettings = async (
+  workosUserId: string,
+  owner: string,
+  repo: string,
+  isPublic?: boolean,
+  embedEnabled?: boolean,
+): Promise<RepositorySharingSettings> => {
+  const [{ db, wikiShares }, { repositoryId }] = await Promise.all([
+    loadDb(),
+    getOrCreateRepositoryShare(workosUserId, owner, repo),
+  ]);
+
+  const updateValues: {
+    updatedAt: Date;
+    isPublic?: boolean;
+    embedEnabled?: boolean;
+  } = {
+    updatedAt: new Date(),
+  };
+
+  if (isPublic !== undefined) {
+    updateValues.isPublic = isPublic;
+  }
+
+  if (embedEnabled !== undefined) {
+    updateValues.embedEnabled = embedEnabled;
+  }
+
+  await db.update(wikiShares).set(updateValues).where(eq(wikiShares.repositoryId, repositoryId));
+
+  const updated = await db.query.wikiShares.findFirst({
+    where: eq(wikiShares.repositoryId, repositoryId),
+    columns: {
+      isPublic: true,
+      embedEnabled: true,
+      shareToken: true,
+      tokenRotatedAt: true,
+    },
+  });
+
+  if (!updated) {
+    throw new AppError('Failed to load updated wiki sharing settings.', 'SHARING_LOAD_FAILED', 500);
+  }
+
+  return toSharingSettings(updated);
+};
+
+export const rotateRepositoryShareToken = async (
+  workosUserId: string,
+  owner: string,
+  repo: string,
+): Promise<RepositorySharingSettings> => {
+  const [{ db, wikiShares }, { repositoryId }] = await Promise.all([
+    loadDb(),
+    getOrCreateRepositoryShare(workosUserId, owner, repo),
+  ]);
+
+  await db
+    .update(wikiShares)
+    .set({
+      shareToken: crypto.randomUUID(),
+      tokenRotatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(wikiShares.repositoryId, repositoryId));
+
+  const updated = await db.query.wikiShares.findFirst({
+    where: eq(wikiShares.repositoryId, repositoryId),
+    columns: {
+      isPublic: true,
+      embedEnabled: true,
+      shareToken: true,
+      tokenRotatedAt: true,
+    },
+  });
+
+  if (!updated) {
+    throw new AppError('Failed to rotate wiki sharing token.', 'SHARING_ROTATE_FAILED', 500);
+  }
+
+  return toSharingSettings(updated);
 };

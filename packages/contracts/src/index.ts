@@ -72,6 +72,10 @@ const ownerRepoParamsSchema = z.object({
   repo: z.string().min(1),
 });
 
+const shareTokenParamsSchema = z.object({
+  shareToken: z.string().uuid(),
+});
+
 const apiErrorSchema = z.object({
   error: z.string(),
   code: z.string().optional(),
@@ -103,6 +107,22 @@ const generateWikiProgressEventSchema = z.object({
   completed: z.number().int().nonnegative().optional(),
 });
 
+const sharingSettingsSchema = z.object({
+  isPublic: z.boolean(),
+  embedEnabled: z.boolean(),
+  shareToken: z.string().uuid(),
+  tokenRotatedAt: z.string().nullable(),
+});
+
+const updateSharingSettingsSchema = z
+  .object({
+    isPublic: z.boolean().optional(),
+    embedEnabled: z.boolean().optional(),
+  })
+  .refine((value) => value.isPublic !== undefined || value.embedEnabled !== undefined, {
+    message: 'At least one sharing setting must be provided',
+  });
+
 export const apiContracts = {
   common: {
     error: apiErrorSchema,
@@ -112,6 +132,33 @@ export const apiContracts = {
       params: ownerRepoParamsSchema,
       response: storedWikiSchema,
       error: apiErrorSchema,
+    },
+    public: {
+      getByShareToken: {
+        params: shareTokenParamsSchema,
+        response: storedWikiSchema,
+        error: apiErrorSchema,
+      },
+    },
+  },
+  repos: {
+    sharing: {
+      get: {
+        params: ownerRepoParamsSchema,
+        response: sharingSettingsSchema,
+        error: apiErrorSchema,
+      },
+      update: {
+        params: ownerRepoParamsSchema,
+        body: updateSharingSettingsSchema,
+        response: sharingSettingsSchema,
+        error: apiErrorSchema,
+      },
+      rotate: {
+        params: ownerRepoParamsSchema,
+        response: sharingSettingsSchema,
+        error: apiErrorSchema,
+      },
     },
   },
   generate: {
@@ -133,3 +180,4 @@ export type StoredWikiContract = z.infer<typeof storedWikiSchema>;
 export type GenerateWikiRequest = z.infer<typeof generateWikiRequestSchema>;
 export type GenerateWikiResponse = z.infer<typeof generateWikiResponseSchema>;
 export type GenerateWikiProgressEvent = z.infer<typeof generateWikiProgressEventSchema>;
+export type SharingSettingsContract = z.infer<typeof sharingSettingsSchema>;

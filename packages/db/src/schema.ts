@@ -92,6 +92,26 @@ export const wikiVersions = pgTable(
   }),
 );
 
+export const wikiShares = pgTable(
+  'wiki_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repositoryId: uuid('repository_id')
+      .references(() => repositories.id, { onDelete: 'cascade' })
+      .notNull(),
+    isPublic: boolean('is_public').default(false).notNull(),
+    shareToken: uuid('share_token').defaultRandom().notNull(),
+    embedEnabled: boolean('embed_enabled').default(false).notNull(),
+    tokenRotatedAt: timestamp('token_rotated_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    repositoryUnique: uniqueIndex('wiki_shares_repository_unique').on(table.repositoryId),
+    shareTokenUnique: uniqueIndex('wiki_shares_share_token_unique').on(table.shareToken),
+  }),
+);
+
 export const wikiPages = pgTable('wiki_pages', {
   id: uuid('id').primaryKey().defaultRandom(),
   wikiVersionId: uuid('wiki_version_id')
@@ -152,6 +172,28 @@ export const generationRateLimits = pgTable(
     userBucketUnique: uniqueIndex('generation_rate_limits_user_bucket_unique').on(
       table.userId,
       table.bucketDate,
+    ),
+  }),
+);
+
+export const publicRequestRateLimits = pgTable(
+  'public_request_rate_limits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestKey: text('request_key').notNull(),
+    route: text('route').notNull(),
+    bucketStart: timestamp('bucket_start', { withTimezone: true }).notNull(),
+    count: integer('count').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    requestRouteBucketUnique: uniqueIndex(
+      'public_request_rate_limits_request_route_bucket_unique',
+    ).on(table.requestKey, table.route, table.bucketStart),
+    requestRouteIndex: index('public_request_rate_limits_request_route_idx').on(
+      table.requestKey,
+      table.route,
     ),
   }),
 );

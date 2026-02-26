@@ -85,39 +85,29 @@ const getRepository = async (
     return null;
   }
 
-  if (userId) {
-    const repository = await db.query.repositories.findFirst({
-      where: and(
-        eq(repositories.userId, userId),
-        eq(repositories.owner, owner),
-        eq(repositories.name, repo),
-      ),
-      columns: {
-        id: true,
-        userId: true,
-      },
-      orderBy: [desc(repositories.updatedAt)],
-    });
-
-    return repository ?? null;
+  if (!userId) {
+    return null;
   }
 
-  const candidates = await db.query.repositories.findMany({
+  const repository = await db.query.repositories.findFirst({
     where: and(
+      eq(repositories.userId, userId),
       eq(repositories.owner, owner),
       eq(repositories.name, repo),
-      eq(repositories.isPrivate, false),
     ),
     columns: {
       id: true,
       userId: true,
     },
     orderBy: [desc(repositories.updatedAt)],
-    limit: 2,
   });
 
-  return candidates[0] ?? null;
+  return repository ?? null;
 };
+
+interface PublicWikiLookupOptions {
+  requireEmbedEnabled?: boolean;
+}
 
 export const saveWiki = async (wiki: StoredWiki): Promise<void> => {
   if (!wiki.generatedByWorkosId) {
@@ -376,4 +366,93 @@ export const deleteWiki = async (
 
   await db.delete(wikiVersions).where(eq(wikiVersions.repositoryId, repository.id));
   return true;
+};
+
+export const getPublicWikiByShareToken = async (
+  shareToken: string,
+  options: PublicWikiLookupOptions = {},
+): Promise<StoredWiki | undefined> => {
+  const { db, wikiShares, repositories, wikiVersions, wikiPages } = await loadDb();
+
+  const share = await db.query.wikiShares.findFirst({
+    where: and(eq(wikiShares.shareToken, shareToken), eq(wikiShares.isPublic, true)),
+    columns: {
+      repositoryId: true,
+      embedEnabled: true,
+    },
+  });
+
+  if (!share) {
+    return undefined;
+  }
+
+  if (options.requireEmbedEnabled && !share.embedEnabled) {
+    return undefined;
+  }
+
+  const repository = await db.query.repositories.findFirst({
+    where: eq(repositories.id, share.repositoryId),
+    columns: {
+      owner: true,
+      name: true,
+    },
+  });
+
+  if (!repository) {
+    return undefined;
+  }
+
+  const rawVersion = await db.query.wikiVersions.findFirst({
+    where: and(eq(wikiVersions.repositoryId, share.repositoryId), eq(wikiVersions.status, 'ready')),
+    orderBy: [desc(wikiVersions.generatedAt), desc(wikiVersions.createdAt)],
+    columns: {
+      id: true,
+      commitSha: true,
+      branch: true,
+      featureTree: true,
+      analysis: true,
+      createdAt: true,
+    },
+  });
+
+  if (!rawVersion) {
+    return undefined;
+  }
+
+  const version: StoredWikiVersion = {
+    id: rawVersion.id,
+    commitSha: rawVersion.commitSha,
+    branch: rawVersion.branch,
+    featureTree: rawVersion.featureTree as unknown as IClassifiedFeatureTree | null,
+    analysis: rawVersion.analysis as unknown as StoredWiki['analysis'] | null,
+    createdAt: rawVersion.createdAt,
+  };
+
+  const storedPages = await db.query.wikiPages.findMany({
+    where: eq(wikiPages.wikiVersionId, version.id),
+    orderBy: [wikiPages.sortOrder, wikiPages.createdAt],
+    columns: {
+      id: true,
+      featureId: true,
+      slug: true,
+      title: true,
+      content: true,
+      citations: true,
+      parentPageId: true,
+      sortOrder: true,
+    },
+  });
+
+  const pages: IWikiPage[] = storedPages.map((page) => ({
+    id: page.id,
+    featureId: page.featureId,
+    slug: page.slug,
+    title: page.title,
+    content: page.content,
+    citations: page.citations,
+    parentPageId: page.parentPageId,
+    order: page.sortOrder,
+  }));
+
+  return toStoredWiki(repository.owner, repository.name, undefined, version, pages);
 };
