@@ -12,11 +12,12 @@ interface SidebarProps {
   pages: IWikiPage[];
   owner: string;
   repo: string;
+  basePath?: string;
 }
 
-export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
+export const WikiSidebar = ({ pages, owner, repo, basePath }: SidebarProps) => {
   const pathname = usePathname();
-  const basePath = `/wiki/${owner}/${repo}`;
+  const resolvedBasePath = basePath ?? `/wiki/${owner}/${repo}`;
   const repoKey = `${owner}/${repo}`;
   const navRef = useRef<HTMLElement | null>(null);
   const restoredForRepoRef = useRef<string | null>(null);
@@ -34,10 +35,12 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
     .sort((a, b) => a.order - b.order);
 
   const activeSlug =
-    pathname === basePath
+    pathname === resolvedBasePath
       ? 'overview'
-      : pathname.startsWith(`${basePath}/`)
-        ? decodeURIComponent(pathname.slice(basePath.length + 1).split('/')[0] ?? 'overview')
+      : pathname.startsWith(`${resolvedBasePath}/`)
+        ? decodeURIComponent(
+            pathname.slice(resolvedBasePath.length + 1).split('/')[0] ?? 'overview',
+          )
         : null;
   const activePage = activeSlug ? pagesBySlug.get(activeSlug) : undefined;
 
@@ -98,7 +101,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
       onScroll={handleScroll}
       className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-950 p-4 overflow-y-auto"
     >
-      <Link href={basePath} prefetch className="block mb-6">
+      <Link href={resolvedBasePath} prefetch className="block mb-6">
         <h2 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">
           {owner}/{repo}
         </h2>
@@ -108,11 +111,11 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
         {overview && (
           <li>
             <Link
-              href={basePath}
+              href={resolvedBasePath}
               prefetch
               className={cn(
                 'block px-3 py-2 rounded-md text-sm transition-colors',
-                pathname === basePath
+                pathname === resolvedBasePath
                   ? 'bg-zinc-800 text-white font-medium'
                   : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50',
               )}
@@ -122,7 +125,8 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
           </li>
         )}
         {topLevel.map((page) => {
-          const href = page.slug === 'overview' ? basePath : `${basePath}/${page.slug}`;
+          const href =
+            page.slug === 'overview' ? resolvedBasePath : `${resolvedBasePath}/${page.slug}`;
           const isActive = pathname === href;
           const children = pages
             .filter((p) => p.parentPageId === page.id)
@@ -163,7 +167,7 @@ export const WikiSidebar = ({ pages, owner, repo }: SidebarProps) => {
               {children.length > 0 && !isGroupCollapsed(page.id) && (
                 <ul className="ml-4 mt-1 space-y-1">
                   {children.map((child) => {
-                    const childHref = `${basePath}/${child.slug}`;
+                    const childHref = `${resolvedBasePath}/${child.slug}`;
                     const childActive = pathname === childHref;
                     return (
                       <li key={child.id}>

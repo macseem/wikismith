@@ -4,6 +4,7 @@ import {
   type GenerateWikiProgressEvent,
   type GenerateWikiRequest,
   type GenerateWikiResponse,
+  type SharingSettingsContract,
   type StoredWikiContract,
 } from '@wikismith/contracts';
 
@@ -55,6 +56,76 @@ const getWiki = async (owner: string, repo: string): Promise<StoredWikiContract>
 
   const payload = await parseJsonSafely(response);
   return apiContracts.wiki.get.response.parse(payload);
+};
+
+const getPublicWiki = async (shareToken: string): Promise<StoredWikiContract> => {
+  const params = apiContracts.wiki.public.getByShareToken.params.parse({ shareToken });
+  const response = await fetch(`/api/wiki/public/${params.shareToken}`);
+
+  if (!response.ok) {
+    throw await toApiClientError(response, 'Failed to load shared wiki.');
+  }
+
+  const payload = await parseJsonSafely(response);
+  return apiContracts.wiki.public.getByShareToken.response.parse(payload);
+};
+
+const getRepoSharingSettings = async (
+  owner: string,
+  repo: string,
+): Promise<SharingSettingsContract> => {
+  const params = apiContracts.repos.sharing.get.params.parse({ owner, repo });
+  const response = await fetch(`/api/repos/${params.owner}/${params.repo}/sharing`);
+
+  if (!response.ok) {
+    throw await toApiClientError(response, 'Failed to load sharing settings.');
+  }
+
+  const payload = await parseJsonSafely(response);
+  return apiContracts.repos.sharing.get.response.parse(payload);
+};
+
+const updateRepoSharingSettings = async (
+  owner: string,
+  repo: string,
+  settings: {
+    isPublic?: boolean;
+    embedEnabled?: boolean;
+  },
+): Promise<SharingSettingsContract> => {
+  const params = apiContracts.repos.sharing.update.params.parse({ owner, repo });
+  const body = apiContracts.repos.sharing.update.body.parse(settings);
+  const response = await fetch(`/api/repos/${params.owner}/${params.repo}/sharing`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw await toApiClientError(response, 'Failed to update sharing settings.');
+  }
+
+  const payload = await parseJsonSafely(response);
+  return apiContracts.repos.sharing.update.response.parse(payload);
+};
+
+const rotateRepoSharingToken = async (
+  owner: string,
+  repo: string,
+): Promise<SharingSettingsContract> => {
+  const params = apiContracts.repos.sharing.rotate.params.parse({ owner, repo });
+  const response = await fetch(`/api/repos/${params.owner}/${params.repo}/sharing/rotate`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw await toApiClientError(response, 'Failed to rotate sharing link.');
+  }
+
+  const payload = await parseJsonSafely(response);
+  return apiContracts.repos.sharing.rotate.response.parse(payload);
 };
 
 const generateWiki = async (request: GenerateWikiRequest): Promise<GenerateWikiResponse> => {
@@ -185,6 +256,10 @@ const generateWikiStream = async (
 
 export const apiClient = {
   getWiki,
+  getPublicWiki,
   generateWiki,
   generateWikiStream,
+  getRepoSharingSettings,
+  updateRepoSharingSettings,
+  rotateRepoSharingToken,
 };

@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: {
     command: useProdServer
       ? `NODE_ENV=production pnpm next build && NODE_ENV=production pnpm next start --port ${PORT}`
-      : `rm -f .next/dev/lock && NODE_ENV=development pnpm next dev --port ${PORT}`,
+      : `rm -f .next/dev/lock && NODE_ENV=development pnpm next dev --webpack --port ${PORT}`,
     port: PORT,
     timeout: useProdServer ? 300_000 : 60_000,
     reuseExistingServer: !process.env['CI'],

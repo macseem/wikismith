@@ -130,6 +130,44 @@ test.describe('Wiki generation E2E flow', () => {
     await expect(openMenu.getByRole('button', { name: 'Sign out' })).toBeVisible();
   });
 
+  test('public share route renders and embed route follows sharing settings', async ({
+    page,
+    request,
+  }) => {
+    const settingsResponse = await request.get(`/api/repos/${OWNER}/${REPO}/sharing`);
+    expect(settingsResponse.status()).toBe(200);
+    const settings = (await settingsResponse.json()) as { shareToken: string };
+
+    const publishResponse = await request.patch(`/api/repos/${OWNER}/${REPO}/sharing`, {
+      data: {
+        isPublic: true,
+        embedEnabled: true,
+      },
+    });
+    expect(publishResponse.status()).toBe(200);
+
+    const published = (await publishResponse.json()) as { shareToken: string };
+    const shareToken = published.shareToken || settings.shareToken;
+
+    await page.goto(`/s/${shareToken}`);
+    await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Sign in' })).toBeVisible();
+    await expect(page.getByLabel('Account menu')).toHaveCount(0);
+
+    const embedResponse = await request.get(`/embed/${shareToken}`);
+    expect(embedResponse.status()).toBe(200);
+
+    const disableEmbedResponse = await request.patch(`/api/repos/${OWNER}/${REPO}/sharing`, {
+      data: {
+        embedEnabled: false,
+      },
+    });
+    expect(disableEmbedResponse.status()).toBe(200);
+
+    const blockedEmbedResponse = await request.get(`/embed/${shareToken}`);
+    expect(blockedEmbedResponse.status()).toBe(404);
+  });
+
   test('sidebar navigation works between pages', async ({ page }) => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
     await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
@@ -190,10 +228,10 @@ test.describe('Wiki generation E2E flow', () => {
     await page.goto(`/wiki/${OWNER}/${REPO}`);
     await expect(page.locator('article h1')).toBeVisible({ timeout: 15_000 });
 
-    const prose = page.locator('article .prose');
-    await expect(prose).toBeVisible();
+    const markdown = page.locator('article .wiki-content');
+    await expect(markdown).toBeVisible();
 
-    const paragraphs = prose.locator('p');
+    const paragraphs = markdown.locator('p');
     expect(await paragraphs.count()).toBeGreaterThan(0);
   });
 
