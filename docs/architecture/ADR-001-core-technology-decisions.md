@@ -141,7 +141,7 @@ WikiSmith is an AI-powered wiki generator for GitHub repositories. We need to ma
 
 **Decision**: Introduce a dedicated `@wikismith/contracts` package with Zod schemas shared by frontend API client code and backend route handlers.
 
-**Why**: Client components currently parse ad-hoc JSON from API routes. Shared runtime schemas make request/response contracts explicit, catch contract drift early, and keep frontend/backed flows fully typed.
+**Why**: Client components currently parse ad-hoc JSON from API routes. Shared runtime schemas make request/response contracts explicit, catch contract drift early, and keep frontend/backend flows fully typed.
 
 **Implementation**:
 

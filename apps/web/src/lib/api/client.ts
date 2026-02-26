@@ -110,17 +110,13 @@ const generateWikiStream = async (
   let buffer = '';
   let currentEvent = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-
+  const handleEventLines = (lines: string[]): GenerateWikiResponse | null => {
     for (const line of lines) {
+      if (line.length === 0) {
+        currentEvent = '';
+        continue;
+      }
+
       if (line.startsWith('event: ')) {
         currentEvent = line.slice(7);
         continue;
@@ -153,6 +149,34 @@ const generateWikiStream = async (
         const errorPayload = apiContracts.generate.post.sse.error.parse(parsedPayload);
         throw new ApiClientError(errorPayload.statusCode ?? 500, errorPayload);
       }
+    }
+
+    return null;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      buffer += decoder.decode();
+
+      if (buffer.length > 0) {
+        const parsed = handleEventLines(buffer.split('\n'));
+        if (parsed) {
+          return parsed;
+        }
+      }
+
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    const parsed = handleEventLines(lines);
+    if (parsed) {
+      return parsed;
     }
   }
 
