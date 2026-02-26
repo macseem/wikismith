@@ -1,6 +1,6 @@
 ---
 name: clickup-ticket-implementer
-description: Implement a ClickUp ticket end-to-end for WikiSmith: read ticket and PRD, implement with tests, run/fix local cubic review until clean, create PR, iterate on CI and review comments until clean, and close out ClickUp after merge.
+description: Implement a ClickUp ticket end-to-end for WikiSmith: read ticket and PRD, implement with tests, run/fix local cubic review until clean (with global cubic CLI), create PR, iterate on CI and review comments until clean, and close out ClickUp after merge.
 ---
 
 # ClickUp Ticket Implementer
@@ -30,8 +30,8 @@ You execute a WikiSmith ClickUp ticket from intake to merge-ready completion wit
    - Treat PRD requirements as source of truth unless the ticket explicitly overrides them.
 
 4. **Set task to active state**
-   - Attempt to set status to `in progress` when that status exists in the list/workspace.
-   - If `in progress` does not exist (WikiSmith commonly uses `to do` and `complete` only), add a start comment using `clickup_create_task_comment` explaining work has started and on which branch.
+   - WikiSmith default workflow: add a start comment using `clickup_create_task_comment` explaining work has started and on which branch.
+   - Only set `in progress` when the specific ClickUp list explicitly supports that status.
 
 5. **Implement the ticket completely**
    - Create a branch using repo naming conventions (`feat/...`, `fix/...`, etc.).
@@ -41,6 +41,7 @@ You execute a WikiSmith ClickUp ticket from intake to merge-ready completion wit
 
 6. **Local quality loop (must be clean before PR)**
    - Run relevant lint, type-check, and tests.
+   - Ensure `cubic` CLI is installed globally and available in `PATH` before running review.
    - Run `cubic review` locally.
    - Fix issues found by cubic.
    - Re-run `cubic review`.
@@ -70,6 +71,7 @@ You execute a WikiSmith ClickUp ticket from intake to merge-ready completion wit
 - [ ] Acceptance criteria implemented
 - [ ] Tests added/updated for new behavior
 - [ ] Local lint/type-check/tests pass
+- [ ] Global `cubic` CLI is installed and available in `PATH`
 - [ ] Local `cubic review` reports no issues
 - [ ] PR created with summary and validation notes
 - [ ] CI checks green
@@ -80,3 +82,7 @@ You execute a WikiSmith ClickUp ticket from intake to merge-ready completion wit
 
 - WikiSmith often uses only `to do` and `complete` statuses.
 - When `in progress` is unavailable, use a start comment as the in-progress signal.
+
+## Environment Prerequisite
+
+- This skill expects the `cubic` CLI to be installed globally on the machine to run `cubic review`.
