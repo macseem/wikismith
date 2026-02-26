@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { RepoInput } from '@/components/home/repo-input';
 import { RepositoryCardActions } from '@/components/dashboard/repository-card-actions';
+import { AccountMenu } from '@/components/auth/account-menu';
 import { getSession } from '@/lib/auth/session';
 import { getDailyGenerationUsage } from '@/lib/auth/rate-limit';
 import { getRepositoryDashboardData, type WikiStatus } from '@/lib/repos/repository-service';
@@ -181,14 +182,7 @@ const DashboardPage = async ({ searchParams }: DashboardPageProps) => {
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/settings">Settings</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link href="/account">Account</Link>
-            </Button>
-          </div>
+          <AccountMenu session={session} />
         </header>
 
         <Card className="p-5 bg-zinc-900/70 border-zinc-800 space-y-4">

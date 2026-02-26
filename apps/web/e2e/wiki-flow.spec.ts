@@ -204,3 +204,20 @@ test.describe('Wiki generation E2E flow', () => {
     await expect(page.getByText(/try again/i)).toBeVisible();
   });
 });
+
+test.describe('Dashboard account actions', () => {
+  test('dashboard account menu is reachable on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/dashboard');
+
+    const accountMenuTrigger = page.getByLabel('Account menu');
+    await expect(accountMenuTrigger).toBeVisible();
+    await accountMenuTrigger.click();
+
+    const openMenu = page.locator('details[open]');
+    await expect(openMenu.getByText('Signed in')).toBeVisible();
+    await expect(openMenu.getByText('e2e@wikismith.local')).toBeVisible();
+    await expect(openMenu.getByRole('link', { name: 'Settings' })).toBeVisible();
+    await expect(openMenu.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  });
+});
